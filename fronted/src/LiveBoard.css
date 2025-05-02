@@ -1,0 +1,57 @@
+.live-board {
+  text-align: center;
+  direction: rtl;
+  padding: 20px;
+  height: 80vh; /* הגדרת גובה */
+  overflow: hidden; /* הסתרת גלילה */
+}
+
+.scroll-container {
+  display: flex;
+  flex-direction: column;
+  animation: scroll-vertical 40s linear infinite; /* גלילה קבועה */
+}
+
+table {
+  margin: 0 auto 40px;
+  border-collapse: collapse;
+  width: 80%;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+}
+
+th {
+  background-color: #f0f0f0;
+}
+
+.category-section {
+  margin-bottom: 30px;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+/* צבעים שונים לכל קטגוריה */
+.category-E   { background-color: #fff0f0; }
+.category-CM  { background-color: #f0fff0; }
+.category-CF  { background-color: #f0f0ff; }
+.category-BM  { background-color: #ffe0b3; }
+.category-BF  { background-color: #e0ccff; }
+.category-AM  { background-color: #ccf5ff; }
+.category-AF  { background-color: #f9f2ec; }
+.category-JM  { background-color: #e6ffe6; }
+.category-JF  { background-color: #fddde6; }
+.category-SM  { background-color: #ffffcc; }
+.category-SF  { background-color: #e0f7fa; }
+
+/* אנימציה של גלילה אנכית */
+@keyframes scroll-vertical {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}

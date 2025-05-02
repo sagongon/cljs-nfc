@@ -1,0 +1,33 @@
+
+.route-selector {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 10px;
+  margin: 10px auto;
+  max-width: 400px;
+}
+
+.route-button {
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  background-color: #f9f9f9;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.route-button.selected {
+  background-color: #4caf50;
+  color: white;
+}
+
+.confirm-button {
+  margin-top: 10px;
+  padding: 8px 16px;
+  font-size: 16px;
+}

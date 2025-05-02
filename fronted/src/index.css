@@ -1,0 +1,16 @@
+/* ✅ index.css - עיצוב כללי לדף */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f2f2f2;
+  direction: rtl;
+}
+
+#root {
+  min-height: 100vh;
+}
