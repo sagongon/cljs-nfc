@@ -1,10 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './App.css';
 
-const SERVER_URL =
-  window.location.hostname === 'localhost'
-    ? 'http://localhost:4000'
-    : 'http://192.168.1.242:4000';
+const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
 
 const App = () => {
   const [competitorsFull, setCompetitorsFull] = useState([]);
