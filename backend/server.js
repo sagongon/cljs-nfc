@@ -288,7 +288,6 @@ app.post('/register-nfc', async (req, res) => {
   }
 
   try {
-    // 1. בדיקה אם גיליון NFCMap קיים, אם לא – צור אותו
     const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
     const sheetsList = meta.data.sheets.map(s => s.properties.title);
     if (!sheetsList.includes('NFCMap')) {
@@ -307,20 +306,39 @@ app.post('/register-nfc', async (req, res) => {
       console.log('🆕 נוצר גיליון NFCMap');
     }
 
-    // 2. בדיקה אם UID כבר קיים – אם כן, החזר שגיאה
+    // שליפת כלל הרשומות הקיימות
     const resGet = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
       range: 'NFCMap!A2:B',
     });
 
     const rows = resGet.data.values || [];
-    const uidExists = rows.some(row => row[0] === uid);
+    const existingRowIndex = rows.findIndex(row => row[0] === uid);
 
-    if (uidExists) {
-      return res.status(400).json({ error: 'הצמיד כבר שויך למתחרה אחר' });
+    // אם הצמיד כבר משויך למישהו אחר – חסום
+    if (existingRowIndex !== -1) {
+      const existingName = rows[existingRowIndex][1];
+      if (existingName && existingName !== name) {
+        return res.status(400).json({ error: `הצמיד כבר שויך למתחרה אחר: ${existingName}` });
+      }
+
+      // אם הצמיד שויך לאותו שם – אין צורך לעדכן או להוסיף שוב
+      if (existingName === name) {
+        return res.json({ message: 'הצמיד כבר שויך למתחרה זה – אין שינוי' });
+      }
+
+      // אם אותו UID בלי שם – עדכן את השם
+      const rowNumber = existingRowIndex + 2;
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `NFCMap!B${rowNumber}`,
+        valueInputOption: 'USER_ENTERED',
+        resource: { values: [[name]] }
+      });
+      return res.json({ message: 'הצמיד שויך בהצלחה (עודכן)' });
     }
 
-    // 3. הוספה רגילה
+    // אם UID לא קיים כלל – הוספה חדשה
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
       range: 'NFCMap!A:B',
@@ -329,7 +347,6 @@ app.post('/register-nfc', async (req, res) => {
     });
 
     res.json({ message: 'הצמיד שויך בהצלחה' });
-
   } catch (err) {
     console.error('❌ שגיאה ברישום NFC:', err.message);
     res.status(500).json({ error: 'שגיאה ברישום הצמיד' });
