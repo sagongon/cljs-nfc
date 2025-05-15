@@ -180,32 +180,40 @@ const App = () => {
   };
 
   const handleNfcRegistration = async () => {
-    try {
-      if ('NDEFReader' in window) {
-        const reader = new window.NDEFReader();
-        await reader.scan();
-        setNfcMessage('הצמד צמיד כעת...');
-        reader.onreading = async (event) => {
-          const uid = event.serialNumber;
+  try {
+    if ('NDEFReader' in window) {
+      const reader = new window.NDEFReader();
+      await reader.scan();
+      setNfcMessage('הצמד צמיד כעת...');
+      reader.onreading = async (event) => {
+        const uid = event.serialNumber;
+        try {
           const response = await fetch(`${SERVER_URL}/register-nfc`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: selectedName, uid })
           });
+
           if (response.ok) {
             setNfcMessage('הצמיד שויך בהצלחה ✅');
           } else {
-            setNfcMessage('שגיאה בשיוך הצמיד ❌');
+            const err = await response.json();
+            setNfcMessage(`❌ ${err.error || 'שגיאה בשיוך הצמיד'}`);
           }
-        };
-      } else {
-        setNfcMessage('המכשיר שלך לא תומך ב־NFC');
-      }
-    } catch (err) {
-      console.error('שגיאת NFC:', err);
-      setNfcMessage('שגיאה בקריאת NFC');
+        } catch (err) {
+          console.error('שגיאה בשליחת UID:', err);
+          setNfcMessage('שגיאה בשליחת UID');
+        }
+      };
+    } else {
+      setNfcMessage('המכשיר שלך לא תומך ב־NFC');
     }
-  };
+  } catch (err) {
+    console.error('שגיאת NFC:', err);
+    setNfcMessage('שגיאה בקריאת NFC');
+  }
+};
+
 
   return (
     <div className='App'>
