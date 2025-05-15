@@ -288,6 +288,7 @@ app.post('/register-nfc', async (req, res) => {
   }
 
   try {
+    // 1. בדיקה אם גיליון NFCMap קיים, אם לא – צור אותו
     const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
     const sheetsList = meta.data.sheets.map(s => s.properties.title);
     if (!sheetsList.includes('NFCMap')) {
@@ -306,33 +307,20 @@ app.post('/register-nfc', async (req, res) => {
       console.log('🆕 נוצר גיליון NFCMap');
     }
 
+    // 2. בדיקה אם UID כבר קיים – אם כן, החזר שגיאה
     const resGet = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
       range: 'NFCMap!A2:B',
     });
 
     const rows = resGet.data.values || [];
-    const existingRow = rows.findIndex(row => row[0] === uid);
+    const uidExists = rows.some(row => row[0] === uid);
 
-    if (existingRow !== -1) {
-      const existingName = rows[existingRow][1];
-      if (existingName && existingName !== name) {
-        return res.status(400).json({ error: `כבר משויך ל־${existingName}` });
-      }
-
-      const rowNumber = existingRow + 2;
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: `NFCMap!B${rowNumber}`,
-        valueInputOption: 'USER_ENTERED',
-        resource: { values: [[name]] }
-      });
-
-      return res.json({
-        message: existingName ? 'הצמיד שויך בהצלחה (עודכן)' : 'הצמיד שויך בהצלחה'
-      });
+    if (uidExists) {
+      return res.status(400).json({ error: 'הצמיד כבר שויך למתחרה אחר' });
     }
 
+    // 3. הוספה רגילה
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
       range: 'NFCMap!A:B',
