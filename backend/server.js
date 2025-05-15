@@ -307,22 +307,16 @@ app.post('/register-nfc', async (req, res) => {
       console.log('🆕 נוצר גיליון NFCMap');
     }
 
-    // 2. מחיקה של UID קודם אם קיים
+    // 2. בדיקה אם UID כבר קיים – אם כן, החזר שגיאה
     const resGet = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEET_ID,
       range: 'NFCMap!A2:B',
     });
     const rows = resGet.data.values || [];
-    const existingRow = rows.findIndex(row => row[0] === uid);
-    if (existingRow !== -1) {
-      const rowNumber = existingRow + 2;
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: `NFCMap!B${rowNumber}`,
-        valueInputOption: 'USER_ENTERED',
-        resource: { values: [[name]] }
-      });
-      return res.json({ message: 'הצמיד שויך בהצלחה (עודכן)' });
+    const existingRow = rows.find(row => row[0] === uid);
+    if (existingRow) {
+      const existingName = existingRow[1];
+      return res.status(400).json({ error: `הצמיד כבר שויך למתחרה: ${existingName}` });
     }
 
     // 3. הוספה רגילה
