@@ -24,6 +24,8 @@ const App = () => {
   const [lastRoute, setLastRoute] = useState('');
   const [pendingResult, setPendingResult] = useState(null);
   const [warningMsg, setWarningMsg] = useState('');
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [nfcMessage, setNfcMessage] = useState('');
 
   const handleAddExtra = () => {
     if (newExtra && !extraCompetitors.includes(newExtra)) {
@@ -34,31 +36,23 @@ const App = () => {
   const handleSelectChange = e => setSelectedName(e.target.value);
 
   useEffect(() => {
-  // 1) תחילה: שחזור כל היסטוריית המתחרים מהגיליון (עם התחשבות ב־RESET)
-  fetch(`${SERVER_URL}/refresh`)
-    .then(res => res.json())
-    .then(() => {
-      console.log('✅ היסטוריה שוחזרה מהשרת');
-      // 2) עכשיו תוכל בבטחה למשוך את הנתונים ל־live
-      return fetch(`${SERVER_URL}/live`);
-    })
-    .then(res => res.json())
-    .then(data => {
-      const cats = Object.keys(data);
-      setCategories(cats);
-      const full = [];
-      cats.forEach(cat =>
-        data[cat].forEach(comp =>
-          full.push({ name: comp.name, category: cat })
-        )
-      );
-      setCompetitorsFull(full);
-    })
-    .catch(err =>
-      console.error('❌ שגיאה בשחזור או בשליפת מתחרים:', err)
-    );
-}, []);
-
+    fetch(`${SERVER_URL}/refresh`)
+      .then(res => res.json())
+      .then(() => fetch(`${SERVER_URL}/live`))
+      .then(res => res.json())
+      .then(data => {
+        const cats = Object.keys(data);
+        setCategories(cats);
+        const full = [];
+        cats.forEach(cat =>
+          data[cat].forEach(comp =>
+            full.push({ name: comp.name, category: cat })
+          )
+        );
+        setCompetitorsFull(full);
+      })
+      .catch(err => console.error('❌ שגיאה בשחזור או בשליפת מתחרים:', err));
+  }, []);
 
   useEffect(() => {
     let names = competitorsFull
@@ -89,9 +83,8 @@ const App = () => {
 
   const syncPendingAttempts = async () => {
     const pending = JSON.parse(localStorage.getItem('offlineAttempts') || '[]');
-    if (!pending.length) return;
     if (!pending.length) {
-      setAdminCode('');    // אפס קוד שופט גם כשאין מה לסננכרן
+      setAdminCode('');
       return;
     }
     try {
@@ -101,12 +94,11 @@ const App = () => {
         body: JSON.stringify({ attempts: pending })
       });
       if (res.ok) {
-  localStorage.removeItem('offlineAttempts');
-  setSyncMessage(`✅ ${pending.length} ניסיון${pending.length > 1 ? 'ים' : ''} סונכרנו בהצלחה!`);
-  setAdminCode('');    // כאן מנקים את שדה קוד השופט
-  setTimeout(() => setSyncMessage(''), 3000);
-}
-
+        localStorage.removeItem('offlineAttempts');
+        setSyncMessage(`✅ ${pending.length} ניסיון${pending.length > 1 ? 'ים' : ''} סונכרנו בהצלחה!`);
+        setAdminCode('');
+        setTimeout(() => setSyncMessage(''), 3000);
+      }
     } catch {
       console.error('Sync failed');
     }
@@ -187,15 +179,45 @@ const App = () => {
       .catch(() => console.error('Correction failed'));
   };
 
+  const handleNfcRegistration = async () => {
+    try {
+      if ('NDEFReader' in window) {
+        const reader = new window.NDEFReader();
+        await reader.scan();
+        setNfcMessage('הצמד צמיד כעת...');
+        reader.onreading = async (event) => {
+          const uid = event.serialNumber;
+          const response = await fetch(`${SERVER_URL}/register-nfc`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: selectedName, uid })
+          });
+          if (response.ok) {
+            setNfcMessage('הצמיד שויך בהצלחה ✅');
+          } else {
+            setNfcMessage('שגיאה בשיוך הצמיד ❌');
+          }
+        };
+      } else {
+        setNfcMessage('המכשיר שלך לא תומך ב־NFC');
+      }
+    } catch (err) {
+      console.error('שגיאת NFC:', err);
+      setNfcMessage('שגיאה בקריאת NFC');
+    }
+  };
+
   return (
     <div className='App'>
       <h2>🧗 מערכת שיפוט תחרות</h2>
-
-      <button onClick={() => setShowCatSelector(prev => !prev)}>
-        {showCatSelector ? 'סגור קטגוריות' : 'בחר קטגוריות'}
+      <button onClick={() => setIsRegisterMode(prev => !prev)}>
+        {isRegisterMode ? 'עבור למצב שיפוט' : 'עבור למצב רישום'}
       </button>
-      {showCatSelector && (
-        <div className='category-selector'>
+
+      {isRegisterMode ? (
+        <div>
+          <h3>רישום מתחרה</h3>
+          <label>בחר קטגוריה:</label><br />
           {categories.map(cat => (
             <label key={cat}>
               <input
@@ -208,72 +230,99 @@ const App = () => {
               {cat}
             </label>
           ))}
-          <div>
-            <input
-              list='all-names'
-              value={newExtra}
-              onChange={e => setNewExtra(e.target.value)}
-              placeholder='הוסף מתחרה נוסף'
-            />
-            <datalist id="all-names">
-  {[...competitorsFull]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(c => (
-      <option key={c.name} value={c.name} />
-    ))
-  }
-</datalist>
-
-            <button onClick={handleAddExtra} disabled={!newExtra}>הוסף</button>
-          </div>
-          <button onClick={() => setExtraCompetitors([])} style={{ marginTop: '8px' }}>נקה נוספים</button>
-        </div>
-      )}
-
-      {!showCatSelector && (
-        <>
-          <select onChange={handleSelectChange} value={selectedName}>
-            <option value=''>בחר מתחרה</option>
+          <br /><br />
+          <label>בחר מתחרה:</label>
+          <select onChange={e => setSelectedName(e.target.value)} value={selectedName}>
+            <option value=''>-- בחר --</option>
             {filteredNames.map(name => <option key={name} value={name}>{name}</option>)}
           </select>
-          <input
-            type='number'
-            placeholder='מספר מסלול'
-            value={routeNumber}
-            min={1}
-            onChange={e => setRouteNumber(e.target.value)}
-            className='route-input'
-          />
-
-          <div className='button-container'>
-            <button onClick={() => requestMark('X')} disabled={locked}>❌ ניסיון</button>
-            <button onClick={() => requestMark('T')} disabled={locked}>✅ הצלחה</button>
-          </div>
-
-          {warningMsg && (
-            <div className='warning-box'>
-              <p>{warningMsg}</p>
-              <button onClick={() => confirmMark(pendingResult)}>כן</button>
-              <button onClick={cancelMark} style={{ marginLeft: '4px' }}>לא</button>
+          <br /><br />
+          <button disabled={!selectedName} onClick={handleNfcRegistration}>📳 הצמד צמיד</button>
+          {nfcMessage && <p>{nfcMessage}</p>}
+        </div>
+      ) : (
+        <>
+          <button onClick={() => setShowCatSelector(prev => !prev)}>
+            {showCatSelector ? 'סגור קטגוריות' : 'בחר קטגוריות'}
+          </button>
+          {showCatSelector && (
+            <div className='category-selector'>
+              {categories.map(cat => (
+                <label key={cat}>
+                  <input
+                    type='checkbox'
+                    checked={selectedCategories.includes(cat)}
+                    onChange={() => setSelectedCategories(prev =>
+                      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+                    )}
+                  />
+                  {cat}
+                </label>
+              ))}
+              <div>
+                <input
+                  list='all-names'
+                  value={newExtra}
+                  onChange={e => setNewExtra(e.target.value)}
+                  placeholder='הוסף מתחרה נוסף'
+                />
+                <datalist id="all-names">
+                  {[...competitorsFull].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                    <option key={c.name} value={c.name} />
+                  ))}
+                </datalist>
+                <button onClick={handleAddExtra} disabled={!newExtra}>הוסף</button>
+              </div>
+              <button onClick={() => setExtraCompetitors([])} style={{ marginTop: '8px' }}>נקה נוספים</button>
             </div>
           )}
 
-          {selectedName && routeNumber && (
-            <p>היסטוריה: {history.length ? history.join(', ') : 'אין'} {locked && '🔒 נעול'}</p>
-          )}
+          {!showCatSelector && (
+            <>
+              <select onChange={handleSelectChange} value={selectedName}>
+                <option value=''>בחר מתחרה</option>
+                {filteredNames.map(name => <option key={name} value={name}>{name}</option>)}
+              </select>
+              <input
+                type='number'
+                placeholder='מספר מסלול'
+                value={routeNumber}
+                min={1}
+                onChange={e => setRouteNumber(e.target.value)}
+                className='route-input'
+              />
 
-          <hr />
-          <h3>🔧 ממשק שופט ראשי</h3>
-          <input
-            type='password'
-            placeholder='קוד שופט ראשי'
-            value={adminCode}
-            onChange={e => setAdminCode(e.target.value)}
-          />
-          <button onClick={handleCorrection} disabled={!adminCode}>איפוס תוצאות</button>
-          <button onClick={syncPendingAttempts} disabled={!adminCode} style={{ marginLeft: '5px' }}>סנכרון OFFLINE</button>
-          {correctionMessage && <p className='message correction'>{correctionMessage}</p>}
-          {syncMessage && <p className='message sync'>{syncMessage}</p>}
+              <div className='button-container'>
+                <button onClick={() => requestMark('X')} disabled={locked}>❌ ניסיון</button>
+                <button onClick={() => requestMark('T')} disabled={locked}>✅ הצלחה</button>
+              </div>
+
+              {warningMsg && (
+                <div className='warning-box'>
+                  <p>{warningMsg}</p>
+                  <button onClick={() => confirmMark(pendingResult)}>כן</button>
+                  <button onClick={cancelMark} style={{ marginLeft: '4px' }}>לא</button>
+                </div>
+              )}
+
+              {selectedName && routeNumber && (
+                <p>היסטוריה: {history.length ? history.join(', ') : 'אין'} {locked && '🔒 נעול'}</p>
+              )}
+
+              <hr />
+              <h3>🔧 ממשק שופט ראשי</h3>
+              <input
+                type='password'
+                placeholder='קוד שופט ראשי'
+                value={adminCode}
+                onChange={e => setAdminCode(e.target.value)}
+              />
+              <button onClick={handleCorrection} disabled={!adminCode}>איפוס תוצאות</button>
+              <button onClick={syncPendingAttempts} disabled={!adminCode} style={{ marginLeft: '5px' }}>סנכרון OFFLINE</button>
+              {correctionMessage && <p className='message correction'>{correctionMessage}</p>}
+              {syncMessage && <p className='message sync'>{syncMessage}</p>}
+            </>
+          )}
         </>
       )}
     </div>

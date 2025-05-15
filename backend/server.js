@@ -280,6 +280,67 @@ app.post('/mark', async (req, res) => {
   res.json({ message: 'OK', history: historyArr, locked: result === 'T' || historyArr.length >= 5 });
 });
 
+
+app.post('/register-nfc', async (req, res) => {
+  const { name, uid } = req.body;
+  if (!name || !uid) {
+    return res.status(400).json({ error: 'חסר שם או UID' });
+  }
+
+  try {
+    // 1. בדיקה אם גיליון NFCMap קיים, אם לא – צור אותו
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+    const sheetsList = meta.data.sheets.map(s => s.properties.title);
+    if (!sheetsList.includes('NFCMap')) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SHEET_ID,
+        requestBody: {
+          requests: [{ addSheet: { properties: { title: 'NFCMap' } } }]
+        }
+      });
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: 'NFCMap!A1:B1',
+        valueInputOption: 'USER_ENTERED',
+        resource: { values: [['UID', 'Name']] }
+      });
+      console.log('🆕 נוצר גיליון NFCMap');
+    }
+
+    // 2. מחיקה של UID קודם אם קיים
+    const resGet = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'NFCMap!A2:B',
+    });
+    const rows = resGet.data.values || [];
+    const existingRow = rows.findIndex(row => row[0] === uid);
+    if (existingRow !== -1) {
+      const rowNumber = existingRow + 2;
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID,
+        range: `NFCMap!B${rowNumber}`,
+        valueInputOption: 'USER_ENTERED',
+        resource: { values: [[name]] }
+      });
+      return res.json({ message: 'הצמיד שויך בהצלחה (עודכן)' });
+    }
+
+    // 3. הוספה רגילה
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: 'NFCMap!A:B',
+      valueInputOption: 'USER_ENTERED',
+      resource: { values: [[uid, name]] }
+    });
+
+    res.json({ message: 'הצמיד שויך בהצלחה' });
+  } catch (err) {
+    console.error('❌ שגיאה ברישום NFC:', err.message);
+    res.status(500).json({ error: 'שגיאה ברישום הצמיד' });
+  }
+});
+
+
 app.get('/live', async (req, res) => {
   try {
     const [competitorsRes, attemptsRes, assistRes] = await Promise.all([
