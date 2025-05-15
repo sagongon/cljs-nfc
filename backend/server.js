@@ -310,6 +310,7 @@ app.post('/register-nfc', async (req, res) => {
       spreadsheetId: SHEET_ID,
       range: 'NFCMap!A2:B',
     });
+
     const rows = resGet.data.values || [];
     const existingRow = rows.findIndex(row => row[0] === uid);
 
@@ -326,7 +327,10 @@ app.post('/register-nfc', async (req, res) => {
         valueInputOption: 'USER_ENTERED',
         resource: { values: [[name]] }
       });
-      return res.json({ message: existingName ? 'הצמיד שויך בהצלחה (עודכן)' : 'הצמיד שויך בהצלחה' });
+
+      return res.json({
+        message: existingName ? 'הצמיד שויך בהצלחה (עודכן)' : 'הצמיד שויך בהצלחה'
+      });
     }
 
     await sheets.spreadsheets.values.append({
@@ -337,6 +341,7 @@ app.post('/register-nfc', async (req, res) => {
     });
 
     res.json({ message: 'הצמיד שויך בהצלחה' });
+
   } catch (err) {
     console.error('❌ שגיאה ברישום NFC:', err.message);
     res.status(500).json({ error: 'שגיאה ברישום הצמיד' });
