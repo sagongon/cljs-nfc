@@ -180,14 +180,25 @@ const App = () => {
   };
 
   const handleNfcRegistration = async () => {
+  if (!selectedName) {
+    setNfcMessage('יש לבחור מתחרה לפני סריקת צמיד');
+    return;
+  }
+
   try {
     if ('NDEFReader' in window) {
       const reader = new window.NDEFReader();
       await reader.scan();
-      setNfcMessage('הצמד צמיד כעת...');
+      setNfcMessage('⏳ ממתין להצמדת צמיד...');
+
+      let alreadyProcessed = false; // הגנה מפני קריאה כפולה
+
       reader.onreading = async (event) => {
+        if (alreadyProcessed) return;
+        alreadyProcessed = true;
+
         const uid = event.serialNumber;
-        setNfcMessage(''); // ניקוי לפני שליחה
+        setNfcMessage('📡 שולח UID לשרת...');
 
         try {
           const response = await fetch(`${SERVER_URL}/register-nfc`, {
@@ -212,9 +223,10 @@ const App = () => {
     }
   } catch (err) {
     console.error('שגיאת NFC:', err);
-    setNfcMessage('שגיאה בקריאת NFC');
+    setNfcMessage('❌ שגיאה בקריאת NFC');
   }
 };
+
 
 
 
