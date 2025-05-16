@@ -72,26 +72,7 @@ const App = () => {
     setNextInQueue('');
   };
 
-      try {
-      if ('NDEFReader' in window) {
-        const reader = new window.NDEFReader();
-        await reader.scan();
-        setNfcMessage('⏳ ממתין להצמדת צמיד...');
-
-        let alreadyProcessed = false;
-        reader.onreading = async (event) => {
-          if (alreadyProcessed) return;
-          alreadyProcessed = true;
-
-          const uid = event.serialNumber;
-          setNfcMessage('📡 שולח UID לשרת...');
-
-          try {
-            const response = await fetch(`${SERVER_URL}/register-nfc`, {
-              method: 'POST',
-              headers: { 'Content-Type
-
-  const handleNfcRegistration = async () => {
+    const handleNfcRegistration = async () => {
     if (!selectedName) {
       setNfcMessage('יש לבחור מתחרה לפני סריקת צמיד');
       return;
