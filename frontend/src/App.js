@@ -9,11 +9,21 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
 const App = () => {
 const location = useLocation();
 
-if (location.pathname.startsWith('/queue-scanner/')) {
-  const parts = location.pathname.split('/');
-  const stationId = parts[2] || '';
-  return <QueueScanner stationId={stationId} />;
-}
+const parts = location.pathname.split('/');
+const stationIdFromPath = parts[1] === 'queue-scanner' ? parts[2] : null;
+
+// כל ה־useState וה־useEffect שלך פה, כמו עכשיו...
+
+  if (stationIdFromPath) {
+    return <QueueScanner stationId={stationIdFromPath} />;
+  }
+
+  return (
+    <div className='App'>
+      {/* כל הקוד הקיים של האפליקציה */}
+    </div>
+  );
+};
 
   const [competitorsFull, setCompetitorsFull] = useState([]);
   const [categories, setCategories] = useState([]);
