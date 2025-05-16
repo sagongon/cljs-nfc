@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import QueueScanner from './QueueScanner';
+import QueueScanner from './QueueScanner.js';
 import './App.css';
 
 
