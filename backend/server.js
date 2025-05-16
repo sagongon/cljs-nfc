@@ -44,6 +44,7 @@ const sheets = google.sheets({ version: 'v4', auth });
 
 const ADMIN_CODE = '007';
 const attemptsMemory = {};
+const queues = {}; // שמירת תורים לפי stationId
 
 function getExcelColumnName(n) {
   let result = '';
@@ -351,6 +352,53 @@ app.post('/register-nfc', async (req, res) => {
     console.error('❌ שגיאה ברישום NFC:', err.message);
     res.status(500).json({ error: 'שגיאה ברישום הצמיד' });
   }
+});
+
+// 📥 הוספת מתחרה לתור לפי UID ותחנה
+app.post('/queue/add', async (req, res) => {
+  const { uid, stationId } = req.body;
+  if (!uid || !stationId) return res.status(400).json({ error: 'חסר UID או מזהה תחנה' });
+
+  try {
+    const resGet = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'NFCMap!A2:B',
+    });
+    const rows = resGet.data.values || [];
+    const match = rows.find(row => row[0] === uid);
+
+    if (!match) return res.status(404).json({ error: 'UID לא נמצא בגיליון' });
+
+    const name = match[1];
+
+    queues[stationId] = queues[stationId] || [];
+    if (!queues[stationId].includes(name)) {
+      queues[stationId].push(name);
+    }
+
+    res.json({ message: 'התווסף לתור', name });
+  } catch (err) {
+    console.error('❌ שגיאה בהוספת לתור:', err.message);
+    res.status(500).json({ error: 'שגיאה בשרת' });
+  }
+});
+
+// 📤 הבא בתור בתחנה
+app.get('/queue/:stationId', (req, res) => {
+  const { stationId } = req.params;
+  const queue = queues[stationId] || [];
+  const next = queue[0] || null;
+  res.json({ next });
+});
+
+// 🧹 הסרת מתחרה מהתור (לאחר סיום ניסיון)
+app.post('/queue/dequeue', (req, res) => {
+  const { stationId } = req.body;
+  if (!stationId || !queues[stationId] || queues[stationId].length === 0) {
+    return res.status(400).json({ error: 'אין תור להסרה' });
+  }
+  const removed = queues[stationId].shift();
+  res.json({ removed });
 });
 
 
