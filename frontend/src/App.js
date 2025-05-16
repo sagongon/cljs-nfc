@@ -1,16 +1,17 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import QueueScanner from './QueueScanner.js';
 import './App.css';
 
-const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'https://cljs.onrender.com';
+const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
 
 const App = () => {
   const location = useLocation();
   const parts = location.pathname.split('/');
   const stationIdFromPath = parts[1] === 'queue-scanner' ? parts[2] : null;
+  const isScannerMode = Boolean(stationIdFromPath);
 
-  // כל ה־hooks תמיד נקראים ללא תנאי
   const [competitorsFull, setCompetitorsFull] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -34,28 +35,7 @@ const App = () => {
   const [stationId, setStationId] = useState('');
   const [nextInQueue, setNextInQueue] = useState('');
 
-  // useEffect לדוגמה
-  useEffect(() => {
-    fetch(`${SERVER_URL}/refresh`)
-      .then(res => res.json())
-      .then(() => fetch(`${SERVER_URL}/live`))
-      .then(res => res.json())
-      .then(data => {
-        const cats = Object.keys(data);
-        setCategories(cats);
-        const full = [];
-        cats.forEach(cat =>
-          data[cat].forEach(comp =>
-            full.push({ name: comp.name, category: cat })
-          )
-        );
-        setCompetitorsFull(full);
-      })
-      .catch(err => console.error('❌ שגיאה בשחזור או בשליפת מתחרים:', err));
-  }, []);
-
-  // במקום return מוקדם – החלק הגמיש יופיע כאן:
-  if (stationIdFromPath) {
+  if (isScannerMode) {
     return <QueueScanner stationId={stationIdFromPath} />;
   }
 
@@ -65,7 +45,7 @@ const App = () => {
       <button onClick={() => setIsRegisterMode(prev => !prev)}>
         {isRegisterMode ? 'עבור למצב שיפוט' : 'עבור למצב רישום'}
       </button>
-      {/* כאן ימשיך שאר הממשק שלך */}
+      <p>אפליקציית השיפוט נטענת בהצלחה.</p>
     </div>
   );
 };
