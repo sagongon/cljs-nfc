@@ -8,7 +8,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
 const App = () => {
   const location = useLocation();
   const parts = location.pathname.split('/');
-  const stationIdFromPath = parts[1] === 'queue-scanner' ? parts[2] : null;
+  
 
   const [competitorsFull, setCompetitorsFull] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -259,144 +259,146 @@ const App = () => {
     }
   };
 
-  return (
-    <div className='App'>
-      <h2>🧗 מערכת שיפוט תחרות</h2>
-      <button onClick={() => setIsRegisterMode(prev => !prev)}>
-        {isRegisterMode ? 'עבור למצב שיפוט' : 'עבור למצב רישום'}
-      </button>
+ return location.pathname.startsWith('/queue-scanner/') ? (
+  <QueueScanner stationId={location.pathname.split('/')[2]} />
+) : (
+  <div className='App'>
+    <h2>🧗 מערכת שיפוט תחרות</h2>
+    <button onClick={() => setIsRegisterMode(prev => !prev)}>
+      {isRegisterMode ? 'עבור למצב שיפוט' : 'עבור למצב רישום'}
+    </button>
 
-      {isRegisterMode ? (
-        <div>
-          <h3>רישום מתחרה</h3>
-          <label>בחר קטגוריה:</label><br />
-          {categories.map(cat => (
-            <label key={cat}>
-              <input
-                type='checkbox'
-                checked={selectedCategories.includes(cat)}
-                onChange={() => setSelectedCategories(prev =>
-                  prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-                )}
-              />
-              {cat}
-            </label>
-          ))}
-          <br /><br />
-          <label>בחר מתחרה:</label>
-          <select onChange={e => setSelectedName(e.target.value)} value={selectedName}>
-            <option value=''>-- בחר --</option>
-            {filteredNames.map(name => <option key={name} value={name}>{name}</option>)}
-          </select>
-          <br /><br />
-          <button disabled={!selectedName} onClick={handleNfcRegistration}>📳 הצמד צמיד</button>
-          {nfcMessage && <p>{nfcMessage}</p>}
-        </div>
-      ) : (
-        <>
-          <button onClick={() => setShowCatSelector(prev => !prev)}>
-            {showCatSelector ? 'סגור קטגוריות' : 'בחר קטגוריות'}
-          </button>
-          {showCatSelector && (
-            <div className='category-selector'>
-              {categories.map(cat => (
-                <label key={cat}>
-                  <input
-                    type='checkbox'
-                    checked={selectedCategories.includes(cat)}
-                    onChange={() => setSelectedCategories(prev =>
-                      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-                    )}
-                  />
-                  {cat}
-                </label>
-              ))}
-              <div>
+    {isRegisterMode ? (
+      <div>
+        <h3>רישום מתחרה</h3>
+        <label>בחר קטגוריה:</label><br />
+        {categories.map(cat => (
+          <label key={cat}>
+            <input
+              type='checkbox'
+              checked={selectedCategories.includes(cat)}
+              onChange={() => setSelectedCategories(prev =>
+                prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+              )}
+            />
+            {cat}
+          </label>
+        ))}
+        <br /><br />
+        <label>בחר מתחרה:</label>
+        <select onChange={e => setSelectedName(e.target.value)} value={selectedName}>
+          <option value=''>-- בחר --</option>
+          {filteredNames.map(name => <option key={name} value={name}>{name}</option>)}
+        </select>
+        <br /><br />
+        <button disabled={!selectedName} onClick={handleNfcRegistration}>📳 הצמד צמיד</button>
+        {nfcMessage && <p>{nfcMessage}</p>}
+      </div>
+    ) : (
+      <>
+        <button onClick={() => setShowCatSelector(prev => !prev)}>
+          {showCatSelector ? 'סגור קטגוריות' : 'בחר קטגוריות'}
+        </button>
+        {showCatSelector && (
+          <div className='category-selector'>
+            {categories.map(cat => (
+              <label key={cat}>
                 <input
-                  list='all-names'
-                  value={newExtra}
-                  onChange={e => setNewExtra(e.target.value)}
-                  placeholder='הוסף מתחרה נוסף'
+                  type='checkbox'
+                  checked={selectedCategories.includes(cat)}
+                  onChange={() => setSelectedCategories(prev =>
+                    prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+                  )}
                 />
-                <datalist id="all-names">
-                  {[...competitorsFull].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
-                    <option key={c.name} value={c.name} />
-                  ))}
-                </datalist>
-                <button onClick={handleAddExtra} disabled={!newExtra}>הוסף</button>
-              </div>
-              <button onClick={() => setExtraCompetitors([])} style={{ marginTop: '8px' }}>נקה נוספים</button>
-            </div>
-          )}
-
-          {!showCatSelector && (
-            <>
-              <select onChange={handleSelectChange} value={selectedName}>
-                <option value=''>בחר מתחרה</option>
-                {filteredNames.map(name => <option key={name} value={name}>{name}</option>)}
-              </select>
+                {cat}
+              </label>
+            ))}
+            <div>
               <input
-                type='number'
-                placeholder='מספר מסלול'
-                value={routeNumber}
-                min={1}
-                onChange={e => setRouteNumber(e.target.value)}
-                className='route-input'
+                list='all-names'
+                value={newExtra}
+                onChange={e => setNewExtra(e.target.value)}
+                placeholder='הוסף מתחרה נוסף'
               />
+              <datalist id="all-names">
+                {[...competitorsFull].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                  <option key={c.name} value={c.name} />
+                ))}
+              </datalist>
+              <button onClick={handleAddExtra} disabled={!newExtra}>הוסף</button>
+            </div>
+            <button onClick={() => setExtraCompetitors([])} style={{ marginTop: '8px' }}>נקה נוספים</button>
+          </div>
+        )}
 
-              <div className='button-container'>
-                <button onClick={() => requestMark('X')} disabled={locked}>❌ ניסיון</button>
-                <button onClick={() => requestMark('T')} disabled={locked}>✅ הצלחה</button>
+        {!showCatSelector && (
+          <>
+            <select onChange={handleSelectChange} value={selectedName}>
+              <option value=''>בחר מתחרה</option>
+              {filteredNames.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+            <input
+              type='number'
+              placeholder='מספר מסלול'
+              value={routeNumber}
+              min={1}
+              onChange={e => setRouteNumber(e.target.value)}
+              className='route-input'
+            />
+
+            <div className='button-container'>
+              <button onClick={() => requestMark('X')} disabled={locked}>❌ ניסיון</button>
+              <button onClick={() => requestMark('T')} disabled={locked}>✅ הצלחה</button>
+            </div>
+
+            {warningMsg && (
+              <div className='warning-box'>
+                <p>{warningMsg}</p>
+                <button onClick={() => confirmMark(pendingResult)}>כן</button>
+                <button onClick={cancelMark} style={{ marginLeft: '4px' }}>לא</button>
               </div>
+            )}
 
-              {warningMsg && (
-                <div className='warning-box'>
-                  <p>{warningMsg}</p>
-                  <button onClick={() => confirmMark(pendingResult)}>כן</button>
-                  <button onClick={cancelMark} style={{ marginLeft: '4px' }}>לא</button>
+            {selectedName && routeNumber && (
+              <p>היסטוריה: {history.length ? history.join(', ') : 'אין'} {locked && '🔒 נעול'}</p>
+            )}
+
+            <hr />
+            <h3>🔧 ממשק שופט ראשי</h3>
+            <div style={{ marginBottom: '20px' }}>
+              <h4>⏱ תור לפי תחנה</h4>
+              <input
+                type="number"
+                placeholder="מספר תחנה"
+                value={stationId}
+                onChange={e => setStationId(e.target.value)}
+                style={{ width: '120px', marginLeft: '10px' }}
+              />
+              <button onClick={fetchNextInQueue} disabled={!stationId}>הבא בתור</button>
+              {nextInQueue && (
+                <div>
+                  <p>🔸 הבא בתור: <strong>{nextInQueue}</strong></p>
+                  <button onClick={dequeueCurrent} style={{ marginTop: '4px' }}>הסר מהתור</button>
                 </div>
               )}
+            </div>
 
-              {selectedName && routeNumber && (
-                <p>היסטוריה: {history.length ? history.join(', ') : 'אין'} {locked && '🔒 נעול'}</p>
-              )}
-
-              <hr />
-              <h3>🔧 ממשק שופט ראשי</h3>
-              <div style={{ marginBottom: '20px' }}>
-                <h4>⏱ תור לפי תחנה</h4>
-                <input
-                  type="number"
-                  placeholder="מספר תחנה"
-                  value={stationId}
-                  onChange={e => setStationId(e.target.value)}
-                  style={{ width: '120px', marginLeft: '10px' }}
-                />
-                <button onClick={fetchNextInQueue} disabled={!stationId}>הבא בתור</button>
-                {nextInQueue && (
-                  <div>
-                    <p>🔸 הבא בתור: <strong>{nextInQueue}</strong></p>
-                    <button onClick={dequeueCurrent} style={{ marginTop: '4px' }}>הסר מהתור</button>
-                  </div>
-                )}
-              </div>
-
-              <input
-                type='password'
-                placeholder='קוד שופט ראשי'
-                value={adminCode}
-                onChange={e => setAdminCode(e.target.value)}
-              />
-              <button onClick={handleCorrection} disabled={!adminCode}>איפוס תוצאות</button>
-              <button onClick={syncPendingAttempts} disabled={!adminCode} style={{ marginLeft: '5px' }}>סנכרון OFFLINE</button>
-              {correctionMessage && <p className='message correction'>{correctionMessage}</p>}
-              {syncMessage && <p className='message sync'>{syncMessage}</p>}
-            </>
-          )}
-        </>
-      )}
-    </div>
-  );
+            <input
+              type='password'
+              placeholder='קוד שופט ראשי'
+              value={adminCode}
+              onChange={e => setAdminCode(e.target.value)}
+            />
+            <button onClick={handleCorrection} disabled={!adminCode}>איפוס תוצאות</button>
+            <button onClick={syncPendingAttempts} disabled={!adminCode} style={{ marginLeft: '5px' }}>סנכרון OFFLINE</button>
+            {correctionMessage && <p className='message correction'>{correctionMessage}</p>}
+            {syncMessage && <p className='message sync'>{syncMessage}</p>}
+          </>
+        )}
+      </>
+    )}
+  </div>
+);
 };
 
 export default App;
