@@ -14,12 +14,7 @@ const App = () => {
     return <QueueScanner stationId={stationIdFromPath} />;
   }
 
-  const location = useLocation();
-  const parts = location.pathname.split('/');
-const stationIdFromPath = parts[1] === 'queue-scanner' ? parts[2] : null;
-
-
-  const [competitorsFull, setCompetitorsFull] = useState([]);
+    const [competitorsFull, setCompetitorsFull] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [extraCompetitors, setExtraCompetitors] = useState([]);
