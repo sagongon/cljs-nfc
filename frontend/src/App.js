@@ -8,13 +8,16 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
 const App = () => {
   const location = useLocation();
   const parts = location.pathname.split('/');
+  const stationIdFromPath = parts[1] === 'queue-scanner' ? parts[2] : null;
+
+  if (stationIdFromPath) {
+    return <QueueScanner stationId={stationIdFromPath} />;
+  }
+
+  const location = useLocation();
+  const parts = location.pathname.split('/');
 const stationIdFromPath = parts[1] === 'queue-scanner' ? parts[2] : null;
 
-if (stationIdFromPath) {
-  return <QueueScanner stationId={stationIdFromPath} />;
-}
-
-  
 
   const [competitorsFull, setCompetitorsFull] = useState([]);
   const [categories, setCategories] = useState([]);
