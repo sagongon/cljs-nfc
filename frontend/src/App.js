@@ -3,37 +3,20 @@ import { useLocation } from 'react-router-dom';
 import QueueScanner from './QueueScanner.js';
 import './App.css';
 
-
 const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
 
 const App = () => {
-const location = useLocation();
-
-const parts = location.pathname.split('/');
-const stationIdFromPath = parts[1] === 'queue-scanner' ? parts[2] : null;
-
-// כל ה־useState וה־useEffect שלך פה, כמו עכשיו...
-
-  if (stationIdFromPath) {
-    return <QueueScanner stationId={stationIdFromPath} />;
-  }
-
-  return (
-    <div className='App'>
-      {/* כל הקוד הקיים של האפליקציה */}
-    </div>
-  );
-};
+  const location = useLocation();
+  const parts = location.pathname.split('/');
+  const stationIdFromPath = parts[1] === 'queue-scanner' ? parts[2] : null;
 
   const [competitorsFull, setCompetitorsFull] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [extraCompetitors, setExtraCompetitors] = useState([]);
   const [showCatSelector, setShowCatSelector] = useState(false);
-
   const [filteredNames, setFilteredNames] = useState([]);
   const [newExtra, setNewExtra] = useState('');
-
   const [selectedName, setSelectedName] = useState('');
   const [routeNumber, setRouteNumber] = useState('');
   const [history, setHistory] = useState([]);
@@ -47,17 +30,12 @@ const stationIdFromPath = parts[1] === 'queue-scanner' ? parts[2] : null;
   const [warningMsg, setWarningMsg] = useState('');
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [nfcMessage, setNfcMessage] = useState('');
-// 🆕 משתנים לניהול תור
-const [stationId, setStationId] = useState('');
-const [nextInQueue, setNextInQueue] = useState('');
+  const [stationId, setStationId] = useState('');
+  const [nextInQueue, setNextInQueue] = useState('');
 
-  const handleAddExtra = () => {
-    if (newExtra && !extraCompetitors.includes(newExtra)) {
-      setExtraCompetitors(prev => [...prev, newExtra]);
-      setNewExtra('');
-    }
-  };
-  const handleSelectChange = e => setSelectedName(e.target.value);
+  if (stationIdFromPath) {
+    return <QueueScanner stationId={stationIdFromPath} />;
+  }
 
   useEffect(() => {
     fetch(`${SERVER_URL}/refresh`)
@@ -88,46 +66,6 @@ const [nextInQueue, setNextInQueue] = useState('');
     setFilteredNames(Array.from(new Set(names)).sort());
   }, [competitorsFull, selectedCategories, extraCompetitors]);
 
-  const fetchHistory = async (name, route) => {
-    try {
-      const res = await fetch(`${SERVER_URL}/history?name=${encodeURIComponent(name)}&route=${route}`);
-      const data = await res.json();
-      setHistory(data.history);
-      setLocked(data.locked);
-    } catch {
-      const all = JSON.parse(localStorage.getItem('offlineAttempts') || '[]');
-      const localH = [];
-      all
-        .filter(a => a.name === name && +a.route === +route)
-        .forEach(a => (a.result === 'RESET' ? (localH.length = 0) : localH.push(a.result)));
-      setHistory(localH);
-      setLocked(localH.includes('T') || localH.length >= 5);
-    }
-  };
-
-  const syncPendingAttempts = async () => {
-    const pending = JSON.parse(localStorage.getItem('offlineAttempts') || '[]');
-    if (!pending.length) {
-      setAdminCode('');
-      return;
-    }
-    try {
-      const res = await fetch(`${SERVER_URL}/sync-offline`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ attempts: pending })
-      });
-      if (res.ok) {
-        localStorage.removeItem('offlineAttempts');
-        setSyncMessage(`✅ ${pending.length} ניסיון${pending.length > 1 ? 'ים' : ''} סונכרנו בהצלחה!`);
-        setAdminCode('');
-        setTimeout(() => setSyncMessage(''), 3000);
-      }
-    } catch {
-      console.error('Sync failed');
-    }
-  };
-
   useEffect(() => {
     if (selectedName && routeNumber) {
       fetchHistory(selectedName, routeNumber);
@@ -137,6 +75,22 @@ const [nextInQueue, setNextInQueue] = useState('');
       setLocked(true);
     }
   }, [selectedName, routeNumber]);
+
+  const fetchHistory = async (name, route) => {
+    try {
+      const res = await fetch(`${SERVER_URL}/history?name=${encodeURIComponent(name)}&route=${route}`);
+      const data = await res.json();
+      setHistory(data.history);
+      setLocked(data.locked);
+    } catch {
+      const all = JSON.parse(localStorage.getItem('offlineAttempts') || '[]');
+      const localH = [];
+      all.filter(a => a.name === name && +a.route === +route)
+        .forEach(a => (a.result === 'RESET' ? (localH.length = 0) : localH.push(a.result)));
+      setHistory(localH);
+      setLocked(localH.includes('T') || localH.length >= 5);
+    }
+  };
 
   const requestMark = res => {
     let msg = '';
@@ -182,6 +136,49 @@ const [nextInQueue, setNextInQueue] = useState('');
     setPendingResult(null);
   };
 
+  const handleNfcRegistration = async () => {
+    if (!selectedName) {
+      setNfcMessage('יש לבחור מתחרה לפני סריקת צמיד');
+      return;
+    }
+    try {
+      if ('NDEFReader' in window) {
+        const reader = new window.NDEFReader();
+        await reader.scan();
+        setNfcMessage('⏳ ממתין להצמדת צמיד...');
+
+        let alreadyProcessed = false;
+        reader.onreading = async (event) => {
+          if (alreadyProcessed) return;
+          alreadyProcessed = true;
+
+          const uid = event.serialNumber;
+          setNfcMessage('📡 שולח UID לשרת...');
+
+          try {
+            const response = await fetch(`${SERVER_URL}/register-nfc`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: selectedName, uid })
+            });
+            const data = await response.json();
+            if (response.ok) {
+              setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
+            } else {
+              setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
+            }
+          } catch {
+            setNfcMessage('❌ שגיאה בשליחת UID');
+          }
+        };
+      } else {
+        setNfcMessage('המכשיר שלך לא תומך ב־NFC');
+      }
+    } catch {
+      setNfcMessage('❌ שגיאה בקריאת NFC');
+    }
+  };
+
   const handleCorrection = () => {
     if (!adminCode) return;
     fetch(`${SERVER_URL}/correct`, {
@@ -199,88 +196,55 @@ const [nextInQueue, setNextInQueue] = useState('');
         setHistory([]);
         setLocked(false);
         setAdminCode('');
-      })
-      .catch(() => console.error('Correction failed'));
+      });
   };
 
-const fetchNextInQueue = async () => {
-  if (!stationId) return;
-  try {
-    const res = await fetch(`${SERVER_URL}/queue/${stationId}`);
-    const data = await res.json();
-    if (data.next) {
-      setSelectedName(data.next);
-      setNextInQueue(data.next);
-    } else {
-      setNextInQueue('אין אף אחד בתור');
+  const syncPendingAttempts = async () => {
+    const pending = JSON.parse(localStorage.getItem('offlineAttempts') || '[]');
+    if (!pending.length) {
+      setAdminCode('');
+      return;
     }
-  } catch (err) {
-    setNextInQueue('שגיאה בשליפה');
-  }
-};
+    try {
+      const res = await fetch(`${SERVER_URL}/sync-offline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attempts: pending })
+      });
+      if (res.ok) {
+        localStorage.removeItem('offlineAttempts');
+        setSyncMessage(`✅ ${pending.length} סונכרנו בהצלחה!`);
+        setAdminCode('');
+        setTimeout(() => setSyncMessage(''), 3000);
+      }
+    } catch {}
+  };
 
-const dequeueCurrent = async () => {
-  if (!stationId) return;
-  await fetch(`${SERVER_URL}/queue/dequeue`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ stationId })
-  });
-  setNextInQueue('');
-};
-
-
-  const handleNfcRegistration = async () => {
-  if (!selectedName) {
-    setNfcMessage('יש לבחור מתחרה לפני סריקת צמיד');
-    return;
-  }
-
-  try {
-    if ('NDEFReader' in window) {
-      const reader = new window.NDEFReader();
-      await reader.scan();
-      setNfcMessage('⏳ ממתין להצמדת צמיד...');
-
-      let alreadyProcessed = false; // הגנה מפני קריאה כפולה
-
-      reader.onreading = async (event) => {
-        if (alreadyProcessed) return;
-        alreadyProcessed = true;
-
-        const uid = event.serialNumber;
-        setNfcMessage('📡 שולח UID לשרת...');
-
-        try {
-          const response = await fetch(`${SERVER_URL}/register-nfc`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: selectedName, uid })
-          });
-
-          const data = await response.json();
-          if (response.ok) {
-            setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-          } else {
-            setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-          }
-        } catch (err) {
-          console.error('שגיאה בשליחת UID:', err);
-          setNfcMessage('❌ שגיאה בשליחת UID');
-        }
-      };
-    } else {
-      setNfcMessage('המכשיר שלך לא תומך ב־NFC');
+  const fetchNextInQueue = async () => {
+    if (!stationId) return;
+    try {
+      const res = await fetch(`${SERVER_URL}/queue/${stationId}`);
+      const data = await res.json();
+      if (data.next) {
+        setSelectedName(data.next);
+        setNextInQueue(data.next);
+      } else {
+        setNextInQueue('אין אף אחד בתור');
+      }
+    } catch {
+      setNextInQueue('שגיאה בשליפה');
     }
-  } catch (err) {
-    console.error('שגיאת NFC:', err);
-    setNfcMessage('❌ שגיאה בקריאת NFC');
-  }
-};
+  };
 
-
-
-
+  const dequeueCurrent = async () => {
+    if (!stationId) return;
+    await fetch(`${SERVER_URL}/queue/dequeue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stationId })
+    });
+    setNextInQueue('');
+  };
 
   return (
     <div className='App'>
@@ -317,105 +281,22 @@ const dequeueCurrent = async () => {
         </div>
       ) : (
         <>
-          <button onClick={() => setShowCatSelector(prev => !prev)}>
-            {showCatSelector ? 'סגור קטגוריות' : 'בחר קטגוריות'}
-          </button>
-          {showCatSelector && (
-            <div className='category-selector'>
-              {categories.map(cat => (
-                <label key={cat}>
-                  <input
-                    type='checkbox'
-                    checked={selectedCategories.includes(cat)}
-                    onChange={() => setSelectedCategories(prev =>
-                      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-                    )}
-                  />
-                  {cat}
-                </label>
-              ))}
-              <div>
-                <input
-                  list='all-names'
-                  value={newExtra}
-                  onChange={e => setNewExtra(e.target.value)}
-                  placeholder='הוסף מתחרה נוסף'
-                />
-                <datalist id="all-names">
-                  {[...competitorsFull].sort((a, b) => a.name.localeCompare(b.name)).map(c => (
-                    <option key={c.name} value={c.name} />
-                  ))}
-                </datalist>
-                <button onClick={handleAddExtra} disabled={!newExtra}>הוסף</button>
-              </div>
-              <button onClick={() => setExtraCompetitors([])} style={{ marginTop: '8px' }}>נקה נוספים</button>
-            </div>
-          )}
-
-          {!showCatSelector && (
-            <>
-              <select onChange={handleSelectChange} value={selectedName}>
-                <option value=''>בחר מתחרה</option>
-                {filteredNames.map(name => <option key={name} value={name}>{name}</option>)}
-              </select>
-              <input
-                type='number'
-                placeholder='מספר מסלול'
-                value={routeNumber}
-                min={1}
-                onChange={e => setRouteNumber(e.target.value)}
-                className='route-input'
-              />
-
-              <div className='button-container'>
-                <button onClick={() => requestMark('X')} disabled={locked}>❌ ניסיון</button>
-                <button onClick={() => requestMark('T')} disabled={locked}>✅ הצלחה</button>
-              </div>
-
-              {warningMsg && (
-                <div className='warning-box'>
-                  <p>{warningMsg}</p>
-                  <button onClick={() => confirmMark(pendingResult)}>כן</button>
-                  <button onClick={cancelMark} style={{ marginLeft: '4px' }}>לא</button>
-                </div>
-              )}
-
-              {selectedName && routeNumber && (
-                <p>היסטוריה: {history.length ? history.join(', ') : 'אין'} {locked && '🔒 נעול'}</p>
-              )}
-
-              <hr />
-              <h3>🔧 ממשק שופט ראשי</h3>
-           <div style={{ marginBottom: '20px' }}>
-             <h4>⏱ תור לפי תחנה</h4>
-             <input
-             type="number"
-             placeholder="מספר תחנה"
-             value={stationId}
-             onChange={e => setStationId(e.target.value)}
-             style={{ width: '120px', marginLeft: '10px' }}
-              />
-             <button onClick={fetchNextInQueue} disabled={!stationId}>הבא בתור</button>
-             {nextInQueue && (
-            <div>
-             <p>🔸 הבא בתור: <strong>{nextInQueue}</strong></p>
-             <button onClick={dequeueCurrent} style={{ marginTop: '4px' }}>הסר מהתור</button>
-            </div>
-             )}
-            </div>
-
-              <input
-                type='password'
-                placeholder='קוד שופט ראשי'
-                value={adminCode}
-                onChange={e => setAdminCode(e.target.value)}
-              />
-              <button onClick={handleCorrection} disabled={!adminCode}>איפוס תוצאות</button>
-              <button onClick={syncPendingAttempts} disabled={!adminCode} style={{ marginLeft: '5px' }}>סנכרון OFFLINE</button>
-              {correctionMessage && <p className='message correction'>{correctionMessage}</p>}
-              {syncMessage && <p className='message sync'>{syncMessage}</p>}
-            </>
-          )}
+          <div style={{ marginBottom: '20px' }}>
+            <h4>⏱ תור לפי תחנה</h4>
+            <input
+              type='number'
+              placeholder='מספר תחנה'
+              value={stationId}
+              onChange={e => setStationId(e.target.value)}
+            />
+            <button onClick={fetchNextInQueue}>הבא בתור</button>
+            {nextInQueue && (
+              <>
+                <p>🔸 הבא בתור: {nextInQueue}</p>
+                <button onClick={dequeueCurrent}>הסר מהתור</button>
+              </>
+            )}
+          </div>
         </>
       )}
     </div>
