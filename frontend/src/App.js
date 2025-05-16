@@ -1,9 +1,20 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import QueueScanner from './QueueScanner';
 import './App.css';
+
 
 const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
 
 const App = () => {
+const location = useLocation();
+
+if (location.pathname.startsWith('/queue-scanner/')) {
+  const parts = location.pathname.split('/');
+  const stationId = parts[2] || '';
+  return <QueueScanner stationId={stationId} />;
+}
+
   const [competitorsFull, setCompetitorsFull] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -26,6 +37,9 @@ const App = () => {
   const [warningMsg, setWarningMsg] = useState('');
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [nfcMessage, setNfcMessage] = useState('');
+// 🆕 משתנים לניהול תור
+const [stationId, setStationId] = useState('');
+const [nextInQueue, setNextInQueue] = useState('');
 
   const handleAddExtra = () => {
     if (newExtra && !extraCompetitors.includes(newExtra)) {
@@ -178,6 +192,33 @@ const App = () => {
       })
       .catch(() => console.error('Correction failed'));
   };
+
+const fetchNextInQueue = async () => {
+  if (!stationId) return;
+  try {
+    const res = await fetch(`${SERVER_URL}/queue/${stationId}`);
+    const data = await res.json();
+    if (data.next) {
+      setSelectedName(data.next);
+      setNextInQueue(data.next);
+    } else {
+      setNextInQueue('אין אף אחד בתור');
+    }
+  } catch (err) {
+    setNextInQueue('שגיאה בשליפה');
+  }
+};
+
+const dequeueCurrent = async () => {
+  if (!stationId) return;
+  await fetch(`${SERVER_URL}/queue/dequeue`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stationId })
+  });
+  setNextInQueue('');
+};
+
 
   const handleNfcRegistration = async () => {
   if (!selectedName) {
@@ -335,6 +376,24 @@ const App = () => {
 
               <hr />
               <h3>🔧 ממשק שופט ראשי</h3>
+           <div style={{ marginBottom: '20px' }}>
+             <h4>⏱ תור לפי תחנה</h4>
+             <input
+             type="number"
+             placeholder="מספר תחנה"
+             value={stationId}
+             onChange={e => setStationId(e.target.value)}
+             style={{ width: '120px', marginLeft: '10px' }}
+              />
+             <button onClick={fetchNextInQueue} disabled={!stationId}>הבא בתור</button>
+             {nextInQueue && (
+            <div>
+             <p>🔸 הבא בתור: <strong>{nextInQueue}</strong></p>
+             <button onClick={dequeueCurrent} style={{ marginTop: '4px' }}>הסר מהתור</button>
+            </div>
+             )}
+            </div>
+
               <input
                 type='password'
                 placeholder='קוד שופט ראשי'
