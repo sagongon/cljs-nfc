@@ -33,10 +33,6 @@ const App = () => {
   const [stationId, setStationId] = useState('');
   const [nextInQueue, setNextInQueue] = useState('');
 
-  if (stationIdFromPath) {
-    return <QueueScanner stationId={stationIdFromPath} />;
-  }
-
   const handleAddExtra = () => {
     if (newExtra && !extraCompetitors.includes(newExtra)) {
       setExtraCompetitors(prev => [...prev, newExtra]);
@@ -135,7 +131,7 @@ const App = () => {
         );
         setCompetitorsFull(full);
       })
-      .catch(err => console.error('❌ שגיאה בשליפת מתחרים:', err));
+      .catch(err => console.error('❌ שגיאה בשחזור או בשליפת מתחרים:', err));
   }, []);
 
   useEffect(() => {
@@ -404,4 +400,6 @@ const App = () => {
 };
 
 export default App;
+
+
 
