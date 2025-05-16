@@ -72,7 +72,7 @@ const App = () => {
     setNextInQueue('');
   };
 
-    const handleNfcRegistration = async () => {
+  const handleNfcRegistration = async () => {
     if (!selectedName) {
       setNfcMessage('יש לבחור מתחרה לפני סריקת צמיד');
       return;
@@ -135,7 +135,7 @@ const App = () => {
         );
         setCompetitorsFull(full);
       })
-      .catch(err => console.error('❌ שגיאה בשחזור או בשליפת מתחרים:', err));
+      .catch(err => console.error('❌ שגיאה בשליפת מתחרים:', err));
   }, []);
 
   useEffect(() => {
@@ -404,5 +404,4 @@ const App = () => {
 };
 
 export default App;
-
 
