@@ -6,6 +6,7 @@ import MainApp from './MainApp.js';
 const App = () => {
   const location = useLocation();
 
+  // התניה ידנית על הנתיב - בלי Route
   if (location.pathname.startsWith('/queue-scanner/')) {
     const stationId = location.pathname.split('/')[2];
     return <QueueScanner stationId={stationId} />;
