@@ -6,13 +6,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'https://cljs.onrender.
 const QueueScanner = () => {
   const { stationId } = useParams();
   const [message, setMessage] = useState('');
-  
-import { useEffect } from 'react';
-
-useEffect(() => {
-  handleScan();
-}, []);
-const [isScanning, setIsScanning] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   const handleScan = async () => {
     if (!('NDEFReader' in window)) {
