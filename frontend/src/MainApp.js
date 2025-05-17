@@ -3,7 +3,7 @@ import './App.css';
 
 const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
 
-const MainApp = () => {
+ const MainApp = () => {
   const [competitorsFull, setCompetitorsFull] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -253,9 +253,10 @@ const MainApp = () => {
     }
   };
 
-  return (
-    <div className='App'>
-      <h2>🧗 מערכת שיפוט תחרות</h2>
+
+   return (
+  <div className='App'>
+    <h2>🧗 מערכת שיפוט תחרות</h2>
     <button onClick={() => setIsRegisterMode(prev => !prev)}>
       {isRegisterMode ? 'עבור למצב שיפוט' : 'עבור למצב רישום'}
     </button>
@@ -389,15 +390,11 @@ const MainApp = () => {
         )}
       </>
     )}
-
-    </div>
-  );
+  </div>
+);
 };
 
-export default MainApp;
-
-
-
+export default App;
 
 
 
