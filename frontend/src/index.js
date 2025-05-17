@@ -1,9 +1,9 @@
-// src/index.js
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App.js';
 import LiveBoard from './LiveBoard.js';
+import QueueScanner from './QueueScanner.js'; // הוספת הייבוא
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
@@ -16,6 +16,7 @@ root.render(
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/live" element={<LiveBoard />} />
+          <Route path="/queue-scanner/:stationId" element={<QueueScanner />} /> {/* ⬅ זה מה שהיה חסר */}
         </Routes>
       </Router>
     </GoogleOAuthProvider>
