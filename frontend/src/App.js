@@ -1,17 +1,15 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
-import QueueScanner from './QueueScanner.js';
-import MainApp from './MainApp.js';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import MainApp from './MainApp';
+import QueueScanner from './QueueScanner';
 
-const App = () => {
-  const location = useLocation();
-
-  if (location.pathname.startsWith('/queue-scanner/')) {
-    const stationId = location.pathname.split('/')[2];
-    return <QueueScanner stationId={stationId} />;
-  }
-
-  return <MainApp />;
-};
+const App = () => (
+  <Router>
+    <Routes>
+      <Route path="/" element={<MainApp />} />
+      <Route path="/queue-scanner/:stationId" element={<QueueScanner />} />
+    </Routes>
+  </Router>
+);
 
 export default App;
