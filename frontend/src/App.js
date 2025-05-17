@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import MainApp from './MainApp.js';
-import QueueScanner from './QueueScanner';
+import QueueScanner from './QueueScanner.js';
 
 const App = () => (
   <Router>
