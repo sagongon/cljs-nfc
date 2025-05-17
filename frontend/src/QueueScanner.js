@@ -1,24 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'https://cljs.onrender.com';
 
 const QueueScanner = () => {
   const { stationId } = useParams();
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState('🔄 טוען...');
   const [isScanning, setIsScanning] = useState(false);
 
-  useEffect(() => {
-    console.log('[QueueScanner] component mounted');
-    console.log('[QueueScanner] stationId:', stationId);
-  }, [stationId]);
-
-  const handleScan = async () => {
-    console.log('[QueueScanner] handleScan clicked');
-
+  const startScan = async () => {
     if (!('NDEFReader' in window)) {
-      setMessage('המכשיר לא תומך ב־NFC');
-      console.warn('[QueueScanner] NDEFReader not supported');
+      setMessage('❌ המכשיר לא תומך ב־NFC');
       return;
     }
 
@@ -27,14 +19,10 @@ const QueueScanner = () => {
       await reader.scan();
       setMessage('⏳ מחכה לצמיד...');
       setIsScanning(true);
-      console.log('[QueueScanner] NFC scan started');
 
       reader.onreading = async (event) => {
-        console.log('[QueueScanner] NFC tag read:', event);
-
         const uid = event.serialNumber;
         setMessage('📡 שולח UID לשרת...');
-        console.log('[QueueScanner] UID:', uid);
 
         try {
           const res = await fetch(`${SERVER_URL}/queue/add`, {
@@ -42,9 +30,7 @@ const QueueScanner = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ uid, stationId })
           });
-
           const data = await res.json();
-          console.log('[QueueScanner] Server response:', data);
 
           if (res.ok) {
             setMessage(`✅ ${data.message}`);
@@ -52,23 +38,26 @@ const QueueScanner = () => {
             setMessage(`❌ ${data.error || 'שגיאה'}`);
           }
         } catch (err) {
-          console.error('[QueueScanner] שגיאה בשליחת UID:', err);
           setMessage('❌ שגיאה בשליחת UID');
         } finally {
           setIsScanning(false);
+          setTimeout(startScan, 2000); // מנסה שוב אחרי 2 שניות
         }
       };
     } catch (err) {
-      console.error('[QueueScanner] שגיאה כללית בסריקה:', err);
+      console.error(err);
       setMessage('❌ שגיאה בקריאת NFC');
       setIsScanning(false);
     }
   };
 
+  useEffect(() => {
+    startScan();
+  }, []);
+
   return (
     <div className="scanner">
-      <h2>סריקת צמיד – תחנה {stationId}</h2>
-      <button onClick={handleScan} disabled={isScanning}>📶 סרוק צמיד</button>
+      <h2>📶 סריקת צמיד – תחנה {stationId}</h2>
       <p>{message}</p>
     </div>
   );
