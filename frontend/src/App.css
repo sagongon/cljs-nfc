@@ -115,6 +115,20 @@ p {
     gap: 10px;
   }
 
+.scanner {
+  text-align: center;
+  direction: rtl;
+  padding: 20px;
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #121212;
+  color: #e0e0e0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
   button {
     min-width: 100px;
     font-size: 16px;
