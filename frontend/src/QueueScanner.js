@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
@@ -5,12 +6,29 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'https://cljs.onrender.
 
 const QueueScanner = () => {
   const { stationId } = useParams();
-  const [message, setMessage] = useState('🔄 טוען...');
+  const [message, setMessage] = useState('');
   const [isScanning, setIsScanning] = useState(false);
+  const [queue, setQueue] = useState([]);
 
-  const startScan = async () => {
+  const fetchQueue = async () => {
+    try {
+      const res = await fetch(`${SERVER_URL}/queue/${stationId}/all`);
+      const data = await res.json();
+      setQueue(data.queue || []);
+    } catch (err) {
+      console.error('שגיאה בטעינת התור:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchQueue();
+    const interval = setInterval(fetchQueue, 3000);
+    return () => clearInterval(interval);
+  }, [stationId]);
+
+  const handleScan = async () => {
     if (!('NDEFReader' in window)) {
-      setMessage('❌ המכשיר לא תומך ב־NFC');
+      setMessage('המכשיר לא תומך ב־NFC');
       return;
     }
 
@@ -37,11 +55,12 @@ const QueueScanner = () => {
           } else {
             setMessage(`❌ ${data.error || 'שגיאה'}`);
           }
+
+          fetchQueue();
         } catch (err) {
           setMessage('❌ שגיאה בשליחת UID');
         } finally {
           setIsScanning(false);
-          setTimeout(startScan, 2000); // מנסה שוב אחרי 2 שניות
         }
       };
     } catch (err) {
@@ -51,14 +70,22 @@ const QueueScanner = () => {
     }
   };
 
-  useEffect(() => {
-    startScan();
-  }, []);
-
   return (
-    <div className="scanner">
-      <h2>📶 סריקת צמיד – תחנה {stationId}</h2>
+    <div className="scanner" style={{ textAlign: 'center', padding: '20px' }}>
+      <h2>סריקת צמיד – תחנה {stationId}</h2>
+      <button onClick={handleScan} disabled={isScanning}>📶 סרוק צמיד</button>
       <p>{message}</p>
+
+      <h3>🕓 ממתינים בתור:</h3>
+      {queue.length === 0 ? (
+        <p>אין ממתינים כרגע</p>
+      ) : (
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          {queue.map((name, idx) => (
+            <li key={idx}>{idx + 1}. {name}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 };
