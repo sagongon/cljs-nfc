@@ -456,3 +456,49 @@ app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
   await restoreAttemptsMemory();
 });
+
+
+
+// ✅ server.js – כולל מניעת שיוך כפול של UID או שם
+
+app.post('/assign-nfc', async (req, res) => {
+  const { name, uid } = req.body;
+  if (!name || !uid) return res.status(400).json({ error: 'Missing name or uid' });
+
+  try {
+    const range = 'NFCMap!A2:B';
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range,
+    });
+
+    const rows = result.data.values || [];
+
+    const uidExists = rows.find(row => row[0] === uid);
+    const nameExists = rows.find(row => row[1] === name);
+
+    if (uidExists && uidExists[1] !== name)
+      return res.status(400).json({ error: 'UID כבר משויך למתחרה אחר' });
+
+    if (nameExists && nameExists[0] !== uid)
+      return res.status(400).json({ error: 'למתחרה כבר משויך UID אחר' });
+
+    if (uidExists && uidExists[1] === name)
+      return res.json({ message: 'כבר קיים שיוך זהה (שם ו-UID)' });
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: 'NFCMap!A:B',
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [[uid, name]],
+      },
+    });
+
+    console.log(`✅ שויך UID ${uid} למתחרה ${name}`);
+    res.json({ message: 'UID שויך בהצלחה' });
+  } catch (err) {
+    console.error('❌ שגיאה בשיוך UID:', err.message);
+    res.status(500).json({ error: 'שגיאה בשיוך UID' });
+  }
+});
