@@ -83,11 +83,12 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
           setNfcMessage('📡 שולח UID לשרת...');
 
           try {
-            const response = await fetch(`${SERVER_URL}/register-nfc`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: selectedName, uid })
-            });
+           const response = await fetch(`${SERVER_URL}/assign-nfc`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name: selectedName, uid })
+});
+
 
             const data = await response.json();
             if (response.ok) {
