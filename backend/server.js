@@ -267,6 +267,14 @@ app.post('/mark', async (req, res) => {
         values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL')]],
       },
     });
+
+// הסרה מהתור אחרי סימון ניסיון
+if (queues) {
+  for (const id in queues) {
+    queues[id] = queues[id].filter(n => n !== name);
+  }
+}
+
   } catch (err) {
     console.error('❌ שגיאה בכתיבה ל-AllAttempts:', err.message);
     return res.status(500).json({ error: 'בעיה בכתיבה ל-AllAttempts' });
@@ -372,10 +380,15 @@ app.post('/queue/add', async (req, res) => {
     const name = match[1];
 
     queues[stationId] = queues[stationId] || [];
-    if (!queues[stationId].includes(name)) {
-      queues[stationId].push(name);
+
+    // אם כבר בתור – הסרה (כדי לאפשר ביטול תור)
+    if (queues[stationId].includes(name)) {
+      queues[stationId] = queues[stationId].filter(n => n !== name);
+      return res.json({ message: 'הוסר מהתור', name });
     }
 
+    // הוספה חדשה לתור
+    queues[stationId].push(name);
     res.json({ message: 'התווסף לתור', name });
   } catch (err) {
     console.error('❌ שגיאה בהוספת לתור:', err.message);
