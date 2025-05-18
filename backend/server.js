@@ -487,17 +487,20 @@ app.post('/assign-nfc', async (req, res) => {
 
     const rows = result.data.values || [];
 
-    const uidExists = rows.find(row => row[0] === uid);
-    const nameExists = rows.find(row => row[1] === name);
+    const uidRow = rows.find(row => row[0] === uid);
+    const nameRow = rows.find(row => row[1] === name);
 
-    if (uidExists && uidExists[1] !== name)
+    if (uidRow && uidRow[1] !== name) {
       return res.status(400).json({ error: 'UID כבר משויך למתחרה אחר' });
+    }
 
-    if (nameExists && nameExists[0] !== uid)
+    if (nameRow && nameRow[0] !== uid) {
       return res.status(400).json({ error: 'למתחרה כבר משויך UID אחר' });
+    }
 
-    if (uidExists && uidExists[1] === name)
-      return res.json({ message: 'כבר קיים שיוך זהה (שם ו-UID)' });
+    if (uidRow && uidRow[1] === name) {
+      return res.json({ message: 'כבר קיים שיוך זהה (שם ו־UID)' });
+    }
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
