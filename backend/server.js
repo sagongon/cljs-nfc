@@ -290,78 +290,6 @@ if (queues) {
 });
 
 
-app.post('/register-nfc', async (req, res) => {
-  const { name, uid } = req.body;
-  if (!name || !uid) {
-    return res.status(400).json({ error: 'חסר שם או UID' });
-  }
-
-  try {
-    const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
-    const sheetsList = meta.data.sheets.map(s => s.properties.title);
-    if (!sheetsList.includes('NFCMap')) {
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId: SHEET_ID,
-        requestBody: {
-          requests: [{ addSheet: { properties: { title: 'NFCMap' } } }]
-        }
-      });
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: 'NFCMap!A1:B1',
-        valueInputOption: 'USER_ENTERED',
-        resource: { values: [['UID', 'Name']] }
-      });
-      console.log('🆕 נוצר גיליון NFCMap');
-    }
-
-    // שליפת כלל הרשומות הקיימות
-    const resGet = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: 'NFCMap!A2:B',
-    });
-
-    const rows = resGet.data.values || [];
-    const existingRowIndex = rows.findIndex(row => row[0] === uid);
-
-    // אם הצמיד כבר משויך למישהו אחר – חסום
-    if (existingRowIndex !== -1) {
-      const existingName = rows[existingRowIndex][1];
-      if (existingName && existingName !== name) {
-        return res.status(400).json({ error: `הצמיד כבר שויך למתחרה אחר: ${existingName}` });
-      }
-
-      // אם הצמיד שויך לאותו שם – אין צורך לעדכן או להוסיף שוב
-      if (existingName === name) {
-        return res.json({ message: 'הצמיד כבר שויך למתחרה זה – אין שינוי' });
-      }
-
-      // אם אותו UID בלי שם – עדכן את השם
-      const rowNumber = existingRowIndex + 2;
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
-        range: `NFCMap!B${rowNumber}`,
-        valueInputOption: 'USER_ENTERED',
-        resource: { values: [[name]] }
-      });
-      return res.json({ message: 'הצמיד שויך בהצלחה (עודכן)' });
-    }
-
-    // אם UID לא קיים כלל – הוספה חדשה
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
-      range: 'NFCMap!A:B',
-      valueInputOption: 'USER_ENTERED',
-      resource: { values: [[uid, name]] }
-    });
-
-    res.json({ message: 'הצמיד שויך בהצלחה' });
-  } catch (err) {
-    console.error('❌ שגיאה ברישום NFC:', err.message);
-    res.status(500).json({ error: 'שגיאה ברישום הצמיד' });
-  }
-});
-
 // 📥 הוספת מתחרה לתור לפי UID ותחנה
 app.post('/queue/add', async (req, res) => {
   const { uid, stationId } = req.body;
@@ -394,6 +322,14 @@ app.post('/queue/add', async (req, res) => {
     console.error('❌ שגיאה בהוספת לתור:', err.message);
     res.status(500).json({ error: 'שגיאה בשרת' });
   }
+});
+
+
+// ✅ החזרת כל התור לתחנה
+app.get('/queue/:stationId/all', (req, res) => {
+  const { stationId } = req.params;
+  const queue = queues[stationId] || [];
+  res.json({ queue });
 });
 
 // 📤 הבא בתור בתחנה
@@ -469,7 +405,6 @@ app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
   await restoreAttemptsMemory();
 });
-
 
 
 // ✅ server.js – כולל מניעת שיוך כפול של UID או שם
