@@ -190,7 +190,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   };
 
   const confirmMark = async res => {
-    const entry = { name: selectedName, route: routeNumber, result: res, timestamp: new Date().toISOString() };
+    const entry = { name: selectedName, route: routeNumber, result: res, stationId, timestamp: new Date().toISOString() };
     const pending = JSON.parse(localStorage.getItem('offlineAttempts') || '[]');
     pending.push(entry);
     localStorage.setItem('offlineAttempts', JSON.stringify(pending));
