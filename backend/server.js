@@ -309,6 +309,13 @@ app.post('/queue/add', async (req, res) => {
 
     queues[stationId] = queues[stationId] || [];
 
+    // ✅ מניעת כפילויות בתחנות שונות
+    for (const [id, list] of Object.entries(queues)) {
+      if (list.includes(name) && id !== stationId) {
+        return res.status(400).json({ error: `המתחרה כבר בתור בתחנה אחרת (תחנה ${id})` });
+      }
+    }
+
     // אם כבר בתור – הסרה (כדי לאפשר ביטול תור)
     if (queues[stationId].includes(name)) {
       queues[stationId] = queues[stationId].filter(n => n !== name);
