@@ -70,7 +70,7 @@ async function ensureAllAttemptsSheet() {
       spreadsheetId: SHEET_ID,
       range: 'AllAttempts!A1:E1',
       valueInputOption: 'USER_ENTERED',
-      resource: { values: [['שם מתחרה', 'מסלול', 'תוצאה', 'מספר ניסיון', 'תאריך', 'מספר תחנה']] },
+      resource: { values: [['שם מתחרה', 'מסלול', 'תוצאה', 'מספר ניסיון', 'תאריך']] },
     });
     console.log('🆕 נוצר גיליון AllAttempts');
   }
@@ -156,7 +156,7 @@ app.post('/sync-offline', async (req, res) => {
         range: 'AllAttempts!A:E',
         valueInputOption: 'USER_ENTERED',
         resource: {
-          values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), stationId]],
+          values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL')]],
         },
       });
       await logToAttemptsSheet(name, routeNum, result);
@@ -246,7 +246,7 @@ app.get('/refresh', async (req, res) => {
 });
 
 app.post('/mark', async (req, res) => {
-  const { name, route, result, stationId } = req.body;
+  const { name, route, result } = req.body;
   const routeNum = parseInt(route, 10);
   if (!attemptsMemory[name]) attemptsMemory[name] = {};
   if (!attemptsMemory[name][routeNum]) attemptsMemory[name][routeNum] = [];
@@ -264,7 +264,7 @@ app.post('/mark', async (req, res) => {
       range: 'AllAttempts!A:E',
       valueInputOption: 'USER_ENTERED',
       resource: {
-        values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), stationId]],
+        values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL')]],
       },
     });
 
@@ -308,6 +308,13 @@ app.post('/queue/add', async (req, res) => {
     const name = match[1];
 
     queues[stationId] = queues[stationId] || [];
+
+    // ✅ מניעת כפילויות בתחנות שונות
+    for (const [id, list] of Object.entries(queues)) {
+      if (list.includes(name) && id !== stationId) {
+        return res.status(400).json({ error: `המתחרה כבר בתור בתחנה אחרת (תחנה ${id})` });
+      }
+    }
 
     // אם כבר בתור – הסרה (כדי לאפשר ביטול תור)
     if (queues[stationId].includes(name)) {
