@@ -88,7 +88,7 @@ async function ensureAllAttemptsSheet() {
     });
     await sheets.spreadsheets.values.update({
       spreadsheetId: SHEET_ID,
-      range: 'AllAttempts!A1:E1',
+      range: 'AllAttempts!A1:F1',
       valueInputOption: 'USER_ENTERED',
       resource: { values: [['שם מתחרה', 'מסלול', 'תוצאה', 'מספר ניסיון', 'תאריך', 'מספר תחנה']] },
     });
