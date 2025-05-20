@@ -46,6 +46,26 @@ const ADMIN_CODE = '007';
 const attemptsMemory = {};
 const queues = {}; // שמירת תורים לפי stationId
 
+async function ensureNFCMapSheet() {
+  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
+  if (!sheetNames.includes('NFCMap')) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SHEET_ID,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: 'NFCMap' } } }],
+      },
+    });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID,
+      range: 'NFCMap!A1:B1',
+      valueInputOption: 'USER_ENTERED',
+      resource: { values: [['UID', 'Name']] },
+    });
+    console.log('🆕 נוצר גיליון NFCMap');
+  }
+}
+
 function getExcelColumnName(n) {
   let result = '';
   while (n > 0) {
@@ -292,6 +312,7 @@ if (queues) {
 
 // 📥 הוספת מתחרה לתור לפי UID ותחנה
 app.post('/queue/add', async (req, res) => {
+  await ensureNFCMapSheet();
   const { uid, stationId } = req.body;
   if (!uid || !stationId) return res.status(400).json({ error: 'חסר UID או מזהה תחנה' });
 
@@ -410,6 +431,7 @@ app.listen(PORT, async () => {
 // ✅ server.js – כולל מניעת שיוך כפול של UID או שם
 
 app.post('/assign-nfc', async (req, res) => {
+  await ensureNFCMapSheet();
   const { name, uid } = req.body;
   if (!name || !uid) return res.status(400).json({ error: 'Missing name or uid' });
 
