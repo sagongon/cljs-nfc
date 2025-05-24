@@ -3,6 +3,7 @@ import './App.css';
 
 // trigger redeploy due to category order fix
 const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
+const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M','F'];
 
  const MainApp = () => {
   const [competitorsFull, setCompetitorsFull] = useState([]);
@@ -126,7 +127,8 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
       .then(res => res.json())
       .then(data => {
         const cats = Object.keys(data);
-        setCategories(cats);
+        const sortedCats = categoryOrder.filter(cat => cats.includes(cat));
+        setCategories(sortedCats);
         const full = [];
         cats.forEach(cat =>
           data[cat].forEach(comp =>
@@ -264,44 +266,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   };
 
 
-   
-  const renderTwoColumnCategories = () => {
-    const col1 = categories.filter((_, i) => i % 2 === 0);
-    const col2 = categories.filter((_, i) => i % 2 === 1);
-    return (
-      <div className="category-columns">
-        <div className="category-column">
-          {col1.map(cat => (
-            <button
-              key={cat}
-              className={\`category-btn \${selectedCategories.includes(cat) ? 'selected' : ''}\`}
-              onClick={() => setSelectedCategories(prev =>
-                prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-              )}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-        <div className="category-column">
-          {col2.map(cat => (
-            <button
-              key={cat}
-              className={\`category-btn \${selectedCategories.includes(cat) ? 'selected' : ''}\`}
-              onClick={() => setSelectedCategories(prev =>
-                prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-              )}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-
-return (
+   return (
   <div className='App'>
     <h2>🧗 מערכת שיפוט תחרות</h2>
     <button onClick={() => setIsRegisterMode(prev => !prev)}>
@@ -312,10 +277,8 @@ return (
       <div>
         <h3>רישום מתחרה</h3>
         <label>בחר קטגוריה:</label><br />
-        {/* 2-column layout */}
-          {renderTwoColumnCategories()}
-          {/* old single-column removed */}
-          {/* <button
+        {categories.map(cat => (
+          <button
             key={cat}
             className={`category-btn ${selectedCategories.includes(cat) ? 'selected' : ''}`}
             onClick={() => setSelectedCategories(prev =>
