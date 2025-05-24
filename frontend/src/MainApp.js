@@ -156,6 +156,10 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M'
       setAdminCode('');
     } else {
       setHistory([]);
+
+  useEffect(() => {
+    setSelectedCategories([]);
+  }, [isRegisterMode]);
       setLocked(true);
     }
   }, [selectedName, routeNumber]);
