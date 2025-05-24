@@ -3,7 +3,7 @@ import './App.css';
 
 const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
 
-const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','SM','SF'];
+const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M','F'];
 
  const MainApp = () => {
   const [competitorsFull, setCompetitorsFull] = useState([]);
@@ -127,10 +127,11 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','SM
       .then(res => res.json())
       .then(data => {
         const cats = Object.keys(data);
-        const sortedCats = categoryOrder.filter(cat => cats.includes(cat));
+        const normalizedCats = cats.map(c => c === 'SM' ? 'M' : c === 'SF' ? 'F' : c);
+        const sortedCats = categoryOrder.filter(cat => normalizedCats.includes(cat));
         setCategories(sortedCats);
         const full = [];
-        cats.forEach(cat =>
+        normalizedCats.forEach(cat =>
           data[cat].forEach(comp =>
             full.push({ name: comp.name, category: cat })
           )
