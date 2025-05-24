@@ -3,7 +3,6 @@ import './App.css';
 
 // trigger redeploy due to category order fix
 const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
-const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M','F'];
 
  const MainApp = () => {
   const [competitorsFull, setCompetitorsFull] = useState([]);
@@ -25,14 +24,14 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M'
   const [pendingResult, setPendingResult] = useState(null);
   const [warningMsg, setWarningMsg] = useState('');
   const [isRegisterMode, setIsRegisterMode] = useState(false);
-  const [nfcMessage, setNfcMessage] = useState('');
-  const [stationId, setStationId] = useState('');
-  const [nextInQueue, setNextInQueue] = useState('');
-
 
   useEffect(() => {
     setSelectedCategories([]);
   }, [isRegisterMode]);
+  const [nfcMessage, setNfcMessage] = useState('');
+  const [stationId, setStationId] = useState('');
+  const [nextInQueue, setNextInQueue] = useState('');
+
   const handleAddExtra = () => {
     if (newExtra && !extraCompetitors.includes(newExtra)) {
       setExtraCompetitors(prev => [...prev, newExtra]);
@@ -131,8 +130,7 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M'
       .then(res => res.json())
       .then(data => {
         const cats = Object.keys(data);
-        const sortedCats = categoryOrder.filter(cat => cats.includes(cat));
-        setCategories(sortedCats);
+        setCategories(cats);
         const full = [];
         cats.forEach(cat =>
           data[cat].forEach(comp =>
@@ -273,9 +271,11 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M'
    return (
   <div className='App'>
     <h2>🧗 מערכת שיפוט תחרות</h2>
-    <button onClick={() => setIsRegisterMode(prev => !prev)}>
+    {!showCatSelector && (
+  <button onClick={() => setIsRegisterMode(prev => !prev)}>
       {isRegisterMode ? 'עבור למצב שיפוט' : 'עבור למצב רישום'}
     </button>
+)}
 
     {isRegisterMode ? (
       <div>
