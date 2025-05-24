@@ -303,7 +303,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
 
 return (
   <div className='App'>
-    <h2>🧗 מערכת שיפוט תחרות</h2>
+    <h2>Climbing Judge System</h2>
     <button onClick={() => setIsRegisterMode(prev => !prev)}>
       {isRegisterMode ? 'עבור למצב שיפוט' : 'עבור למצב רישום'}
     </button>
