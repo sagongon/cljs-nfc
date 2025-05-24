@@ -154,7 +154,11 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M'
     if (selectedName && routeNumber) {
       fetchHistory(selectedName, routeNumber);
       setAdminCode('');
-    } else {
+    }
+  useEffect(() => {
+    setSelectedCategories([]);
+  }, [isRegisterMode]);
+ else {
       setHistory([]);
       setLocked(true);
     }
