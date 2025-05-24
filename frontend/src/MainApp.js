@@ -6,7 +6,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
 const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M','F'];
 
 const MainApp = () => {
-  const [isRegisterMode, setIsRegisterMode] = useState(true);
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [showCatSelector, setShowCatSelector] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [competitorsByCategory, setCompetitorsByCategory] = useState({});
