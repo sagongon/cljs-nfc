@@ -275,16 +275,15 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
         <h3>רישום מתחרה</h3>
         <label>בחר קטגוריה:</label><br />
         {categories.map(cat => (
-          <label key={cat}>
-            <input
-              type='checkbox'
-              checked={selectedCategories.includes(cat)}
-              onChange={() => setSelectedCategories(prev =>
-                prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-              )}
-            />
+          <button
+            key={cat}
+            className={`category-btn ${selectedCategories.includes(cat) ? 'selected' : ''}`}
+            onClick={() => setSelectedCategories(prev =>
+              prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+            )}
+          >
             {cat}
-          </label>
+          </button>
         ))}
         <br /><br />
         <label>בחר מתחרה:</label>
@@ -304,16 +303,15 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
         {showCatSelector && (
           <div className='category-selector'>
             {categories.map(cat => (
-              <label key={cat}>
-                <input
-                  type='checkbox'
-                  checked={selectedCategories.includes(cat)}
-                  onChange={() => setSelectedCategories(prev =>
-                    prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-                  )}
-                />
+              <button
+                key={cat}
+                className={`category-btn ${selectedCategories.includes(cat) ? 'selected' : ''}`}
+                onClick={() => setSelectedCategories(prev =>
+                  prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+                )}
+              >
                 {cat}
-              </label>
+              </button>
             ))}
             <div>
               <input

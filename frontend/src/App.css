@@ -1,3 +1,4 @@
+
 /* ✅ App.css - עיצוב כהה מותאם אישית */
 .App {
   text-align: center;
@@ -16,31 +17,30 @@ h2 {
   color: #90caf9;
 }
 
-/* ======================== */
-/* הוספה חדשה – קטגוריות  */
-/* ======================== */
+/* 🎨 עיצוב חדש לתצוגת כפתורי קטגוריות ממוינות */
 .category-selector {
-  border: 2px solid red;   /* <-- גבול בולט לצורך בדיקה */  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px;
-  max-height: 40vh;
-  overflow-y: auto;
-  background: #1e1e1e;
-  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 12px 0;
+  gap: 6px;
 }
 
-.category-selector label {
-  flex: 1 1 45%;
-  min-width: 120px;
-  white-space: nowrap;
-  cursor: pointer;
+.category-btn {
+  background: #333;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  width: 120px;
+  text-align: center;
+  margin: 4px;
 }
 
-@media (max-width: 480px) {
-  .category-selector label {
-    flex: 1 1 100%;
-  }
+.category-btn.selected {
+  background-color: #4caf50;
+  color: black;
 }
 
 select,
@@ -115,47 +115,22 @@ p {
     gap: 10px;
   }
 
-.scanner {
-  text-align: center;
-  direction: rtl;
-  padding: 20px;
-  font-family: 'Segoe UI', sans-serif;
-  background-color: #121212;
-  color: #e0e0e0;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
+  .scanner {
+    text-align: center;
+    direction: rtl;
+    padding: 20px;
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #121212;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
 
   button {
     min-width: 100px;
     font-size: 16px;
   }
-}
-
-
-/* 🎨 עיצוב חדש לתצוגת כפתורי קטגוריות ממוינות */
-.category-btn {
-  background: #333;
-  color: white;
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  width: 120px;
-  text-align: center;
-  margin: 4px;
-}
-.category-btn.selected {
-  background-color: #4caf50;
-  color: black;
-}
-.category-selector {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin: 12px 0;
-  gap: 6px;
 }
