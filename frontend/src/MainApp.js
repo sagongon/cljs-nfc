@@ -306,16 +306,15 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','SM
         {showCatSelector && (
           <div className='category-selector'>
             {categories.map(cat => (
-              <label key={cat}>
-                <input
-                  type='checkbox'
-                  checked={selectedCategories.includes(cat)}
-                  onChange={() => setSelectedCategories(prev =>
-                    prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-                  )}
-                />
+              <button
+                key={cat}
+                className={`category-btn ${selectedCategories.includes(cat) ? 'selected' : ''}`}
+                onClick={() => setSelectedCategories(prev =>
+                  prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+                )}
+              >
                 {cat}
-              </label>
+              </button>
             ))}
             <div>
               <input
