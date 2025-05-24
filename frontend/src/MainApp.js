@@ -154,11 +154,11 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M'
     if (selectedName && routeNumber) {
       fetchHistory(selectedName, routeNumber);
       setAdminCode('');
-    }
+    } else {
+
   useEffect(() => {
     setSelectedCategories([]);
   }, [isRegisterMode]);
- else {
       setHistory([]);
       setLocked(true);
     }
@@ -273,11 +273,9 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M'
    return (
   <div className='App'>
     <h2>🧗 מערכת שיפוט תחרות</h2>
-    {!showCatSelector && (
-  <button onClick={() => setIsRegisterMode(prev => !prev)}>
+    <button onClick={() => setIsRegisterMode(prev => !prev)}>
       {isRegisterMode ? 'עבור למצב שיפוט' : 'עבור למצב רישום'}
     </button>
-)}
 
     {isRegisterMode ? (
       <div>
