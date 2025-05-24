@@ -3,6 +3,7 @@ import './App.css';
 
 // trigger redeploy due to category order fix
 const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
+const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M','F'];
 
  const MainApp = () => {
   const [competitorsFull, setCompetitorsFull] = useState([]);
@@ -126,7 +127,8 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
       .then(res => res.json())
       .then(data => {
         const cats = Object.keys(data);
-        setCategories(cats);
+        const sortedCats = categoryOrder.filter(cat => cats.includes(cat));
+        setCategories(sortedCats);
         const full = [];
         cats.forEach(cat =>
           data[cat].forEach(comp =>
