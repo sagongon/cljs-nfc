@@ -29,6 +29,10 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M'
   const [stationId, setStationId] = useState('');
   const [nextInQueue, setNextInQueue] = useState('');
 
+
+  useEffect(() => {
+    setSelectedCategories([]);
+  }, [isRegisterMode]);
   const handleAddExtra = () => {
     if (newExtra && !extraCompetitors.includes(newExtra)) {
       setExtraCompetitors(prev => [...prev, newExtra]);
@@ -156,10 +160,6 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M'
       setAdminCode('');
     } else {
       setHistory([]);
-
-  useEffect(() => {
-    setSelectedCategories([]);
-  }, [isRegisterMode]);
       setLocked(true);
     }
   }, [selectedName, routeNumber]);
@@ -273,11 +273,9 @@ const categoryOrder = ['E','DM','DF','CM','CF','BM','BF','AM','AF','JM','JF','M'
    return (
   <div className='App'>
     <h2>🧗 מערכת שיפוט תחרות</h2>
-    {!showCatSelector && (
-  <button onClick={() => setIsRegisterMode(prev => !prev)}>
+    <button onClick={() => setIsRegisterMode(prev => !prev)}>
       {isRegisterMode ? 'עבור למצב שיפוט' : 'עבור למצב רישום'}
     </button>
-)}
 
     {isRegisterMode ? (
       <div>
