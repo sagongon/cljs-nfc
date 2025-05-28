@@ -94,7 +94,8 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   setNfcMessage('📡 ממתין ל־UID מהקורא...');
   try {
     const res = await fetch('http://localhost:9000/uid');
-    const { uid } = await res.json();
+    const result = await res.json();
+    const uid = result.uid;
 
     if (!uid) {
       setNfcMessage('❌ לא התקבל UID מהקורא');
@@ -105,7 +106,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
     const response = await fetch(`${SERVER_URL}/assign-nfc`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: selectedName, uid })
+      body: JSON.stringify({ name: selectedName, uid: uid })
     });
 
     const data = await response.json();
