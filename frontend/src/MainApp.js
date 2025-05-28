@@ -125,35 +125,40 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
             setNfcMessage('❌ שגיאה בשליחת UID');
           }
         };
-      } else {
-        const uid = prompt('📥 הזן UID מהקורא (ACR122U):');
-        if (uid) {
-          setNfcMessage('📡 שולח UID לשרת...');
-          try {
-            const response = await fetch(`${SERVER_URL}/assign-nfc`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: selectedName, uid })
-            });
-            const data = await response.json();
-            if (response.ok) {
-              setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-            } else {
-              setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-            }
-          } catch (err) {
-            console.error('שגיאה בשליחת UID:', err);
-            setNfcMessage('❌ שגיאה בשליחת UID');
-          }
+     } else {
+  setNfcMessage('📡 מנסה לקרוא UID מהקורא...');
+  try {
+    const uidResponse = await fetch('http://localhost:9000/read-uid');
+    const uidData = await uidResponse.json();
+    const uid = uidData.uid;
+
+    if (uid) {
+      setNfcMessage('📡 שולח UID לשרת...');
+      try {
+        const response = await fetch(`${SERVER_URL}/assign-nfc`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: selectedName, uid })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
         } else {
-          setNfcMessage('❌ לא הוזן UID');
+          setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
         }
+      } catch (err) {
+        console.error('שגיאה בשליחת UID:', err);
+        setNfcMessage('❌ שגיאה בשליחת UID');
       }
-    } catch (err) {
-      console.error('שגיאת NFC:', err);
-      setNfcMessage('❌ שגיאה בקריאת NFC');
+    } else {
+      setNfcMessage('❌ לא התקבל UID מהשרת');
     }
-  };
+  } catch (err) {
+    console.error('שגיאה בשליפת UID מהשרת:', err);
+    setNfcMessage('❌ שגיאה בקריאת UID מהקורא');
+  }
+};
+
 
   useEffect(() => {
     fetch(`${SERVER_URL}/refresh`)
