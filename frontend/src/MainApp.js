@@ -76,55 +76,52 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   };
 
   const handleNfcRegistration = async () => {
-    if (!selectedName) {
-      setNfcMessage('יש לבחור מתחרה לפני סריקת צמיד');
+  if (!selectedName) {
+    setNfcMessage('יש לבחור מתחרה לפני סריקת צמיד');
+    return;
+  }
+
+  // שולח את השם לשרת NFC כדי לשייך את ה־UID מאוחר יותר
+  try {
+    await fetch('http://localhost:9000/current-name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: selectedName })
+    });
+  } catch (err) {
+    console.warn('⚠️ לא הצלחנו לשמור את השם בשרת NFC:', err);
+  }
+
+  // מנסה לשלוף UID מהקורא שמחובר למחשב
+  setNfcMessage('📡 ממתין ל־UID מהקורא...');
+  try {
+    const res = await fetch('http://localhost:9000/uid');
+    const { uid } = await res.json();
+
+    if (!uid) {
+      setNfcMessage('❌ לא התקבל UID מהקורא');
       return;
     }
 
-    try {
-    try {
-      // שליחת השם לשרת NFC
-      await fetch('http://localhost:9000/current-name', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: selectedName })
-      });
-    } catch (err) {
-      console.warn('⚠️ לא הצלחנו לשמור את השם בשרת NFC:', err);
+    setNfcMessage('📡 שולח UID לשרת...');
+    const response = await fetch(`${SERVER_URL}/assign-nfc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: selectedName, uid })
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
+    } else {
+      setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
     }
 
-      if ('NDEFReader' in window) {
-        const reader = new window.NDEFReader();
-        await reader.scan();
-        setNfcMessage('⏳ ממתין להצמדת צמיד...');
-
-        let alreadyProcessed = false;
-        reader.onreading = async (event) => {
-          if (alreadyProcessed) return;
-          alreadyProcessed = true;
-
-          const uid = event.serialNumber;
-          setNfcMessage('📡 שולח UID לשרת...');
-
-          try {
-           const response = await fetch(`${SERVER_URL}/assign-nfc`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ name: selectedName, uid })
-});
-
-
-            const data = await response.json();
-            if (response.ok) {
-              setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-            } else {
-              setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-            }
-          } catch (err) {
-            console.error('שגיאה בשליחת UID:', err);
-            setNfcMessage('❌ שגיאה בשליחת UID');
-          }
-        };
+  } catch (err) {
+    console.error('שגיאה בקריאת UID מהקורא:', err);
+    setNfcMessage('❌ שגיאה בקריאת UID מהמחשב');
+  }
+};
       } else {
         const uid = prompt('📥 הזן UID מהקורא (ACR122U):');
         if (uid) {
