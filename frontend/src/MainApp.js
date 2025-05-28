@@ -115,7 +115,6 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
     } else {
       setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
     }
-
   } catch (err) {
     console.error('שגיאה בקריאת UID מהקורא:', err);
     setNfcMessage('❌ שגיאה בקריאת UID מהמחשב');
