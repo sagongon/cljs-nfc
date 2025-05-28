@@ -1,5 +1,3 @@
-// שינוי קל
-
 import React, { useEffect, useState } from 'react';
 import './App.css';
 
@@ -83,7 +81,6 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
     return;
   }
 
-  // שולח את השם לשרת NFC כדי לשייך את ה־UID מאוחר יותר
   try {
     await fetch('http://localhost:9000/current-name', {
       method: 'POST',
@@ -94,7 +91,6 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
     console.warn('⚠️ לא הצלחנו לשמור את השם בשרת NFC:', err);
   }
 
-  // מנסה לשלוף UID מהקורא שמחובר למחשב
   setNfcMessage('📡 ממתין ל־UID מהקורא...');
   try {
     const res = await fetch('http://localhost:9000/uid');
@@ -124,7 +120,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
     setNfcMessage('❌ שגיאה בקריאת UID מהמחשב');
   }
 };
-      } else {;
+      } else {
         const uid = prompt('📥 הזן UID מהקורא (ACR122U):');
         if (uid) {
           setNfcMessage('📡 שולח UID לשרת...');
