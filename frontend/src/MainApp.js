@@ -122,7 +122,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
     setNfcMessage('❌ שגיאה בקריאת UID מהמחשב');
   }
 };
-      } else {
+      } else {;
         const uid = prompt('📥 הזן UID מהקורא (ACR122U):');
         if (uid) {
           setNfcMessage('📡 שולח UID לשרת...');
