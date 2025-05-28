@@ -1,3 +1,5 @@
+// עדכון קל לצורך פריסה מחדש
+
 import React, { useEffect, useState } from 'react';
 import './App.css';
 
