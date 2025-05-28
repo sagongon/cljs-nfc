@@ -82,6 +82,17 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
     }
 
     try {
+    try {
+      // שליחת השם לשרת NFC
+      await fetch('http://localhost:9000/current-name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: selectedName })
+      });
+    } catch (err) {
+      console.warn('⚠️ לא הצלחנו לשמור את השם בשרת NFC:', err);
+    }
+
       if ('NDEFReader' in window) {
         const reader = new window.NDEFReader();
         await reader.scan();
@@ -115,7 +126,28 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
           }
         };
       } else {
-        setNfcMessage('המכשיר שלך לא תומך ב־NFC');
+        const uid = prompt('📥 הזן UID מהקורא (ACR122U):');
+        if (uid) {
+          setNfcMessage('📡 שולח UID לשרת...');
+          try {
+            const response = await fetch(`${SERVER_URL}/assign-nfc`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: selectedName, uid })
+            });
+            const data = await response.json();
+            if (response.ok) {
+              setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
+            } else {
+              setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
+            }
+          } catch (err) {
+            console.error('שגיאה בשליחת UID:', err);
+            setNfcMessage('❌ שגיאה בשליחת UID');
+          }
+        } else {
+          setNfcMessage('❌ לא הוזן UID');
+        }
       }
     } catch (err) {
       console.error('שגיאת NFC:', err);
