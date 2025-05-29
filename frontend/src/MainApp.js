@@ -1,3 +1,5 @@
+// test
+
 import React, { useEffect, useState } from 'react';
 import './App.css';
 
@@ -126,33 +128,48 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
           }
         };
       } else {
-        const uid = prompt('📥 הזן UID מהקורא (ACR122U):');
-        if (uid) {
-          setNfcMessage('📡 שולח UID לשרת...');
-          try {
-            const response = await fetch(`${SERVER_URL}/assign-nfc`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: selectedName, uid })
-            });
-            const data = await response.json();
-            if (response.ok) {
-              setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-            } else {
-              setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-            }
-          } catch (err) {
-            console.error('שגיאה בשליחת UID:', err);
-            setNfcMessage('❌ שגיאה בשליחת UID');
-          }
-        } else {
-          setNfcMessage('❌ לא הוזן UID');
-        }
-      }
-    } catch (err) {
-      console.error('שגיאת NFC:', err);
-      setNfcMessage('❌ שגיאה בקריאת NFC');
+  // במחשב – אפס את ה־UID הקודם
+  await fetch('http://localhost:9000/reset-uid');
+
+  setNfcMessage('⏳ ממתין להצמדת צמיד חדש...');
+  const start = Date.now();
+  const timeout = 8000;
+
+  let uid = '';
+  while (Date.now() - start < timeout) {
+    const res = await fetch('http://localhost:9000/get-latest-uid');
+    const data = await res.json();
+    if (data.uid) {
+      uid = data.uid;
+      break;
     }
+    await new Promise(resolve => setTimeout(resolve, 300)); // המתנה 300ms
+  }
+
+  if (!uid) {
+    setNfcMessage('⚠️ לא נמשה UID – ודא שהצמיד הוצמד');
+    return;
+  }
+
+  setNfcMessage('📡 UID נמשה, שולח לשרת...');
+  try {
+    const response = await fetch(`${SERVER_URL}/assign-nfc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: selectedName, uid })
+    });
+    const data = await response.json();
+    if (response.ok) {
+      setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
+    } else {
+      setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
+    }
+  } catch (err) {
+    console.error('שגיאה בשליחת UID:', err);
+    setNfcMessage('❌ שגיאה בשליחת UID');
+  }
+}
+
   };
 
   useEffect(() => {
