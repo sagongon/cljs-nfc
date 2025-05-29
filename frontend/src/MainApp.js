@@ -1,5 +1,3 @@
-// test
-
 import React, { useEffect, useState } from 'react';
 import './App.css';
 
@@ -128,12 +126,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
           }
         };
       } else {
-        setNfcMessage('📡 מנסה למשוך UID מהשרת...');
-const res = await fetch('http://localhost:9000/get-latest-uid');
-const data = await res.json();
-const uid = data.uid;
-if (!uid) throw new Error('UID ריק מהשרת');
-
+        const uid = prompt('📥 הזן UID מהקורא (ACR122U):');
         if (uid) {
           setNfcMessage('📡 שולח UID לשרת...');
           try {
