@@ -128,7 +128,12 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
           }
         };
       } else {
-        const uid = prompt('📥 הזן UID מהקורא (ACR122U):');
+        setNfcMessage('📡 מנסה למשוך UID מהשרת...');
+const res = await fetch('http://localhost:9000/get-latest-uid');
+const data = await res.json();
+const uid = data.uid;
+if (!uid) throw new Error('UID ריק מהשרת');
+
         if (uid) {
           setNfcMessage('📡 שולח UID לשרת...');
           try {
