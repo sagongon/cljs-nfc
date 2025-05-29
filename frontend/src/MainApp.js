@@ -125,7 +125,8 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
             setNfcMessage('❌ שגיאה בשליחת UID');
           }
         };
-     } else {
+      
+} else {
   setNfcMessage('📡 מנסה לקרוא UID מהקורא...');
   try {
     const uidResponse = await fetch('http://localhost:9000/read-uid');
@@ -157,8 +158,20 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
     console.error('שגיאה בשליפת UID מהשרת:', err);
     setNfcMessage('❌ שגיאה בקריאת UID מהקורא');
   }
-};
-
+}
+ catch (err) {
+            console.error('שגיאה בשליחת UID:', err);
+            setNfcMessage('❌ שגיאה בשליחת UID');
+          }
+        } else {
+          setNfcMessage('❌ לא הוזן UID');
+        }
+      }
+    } catch (err) {
+      console.error('שגיאת NFC:', err);
+      setNfcMessage('❌ שגיאה בקריאת NFC');
+    }
+  };
 
   useEffect(() => {
     fetch(`${SERVER_URL}/refresh`)
