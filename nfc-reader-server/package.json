@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "express": "^4.18.2",
-    "nfc-pcsc": "^0.8.2",
+    "nfc-pcsc": "0.8.1",
     "node-fetch": "^3.3.2"
   }
 }
