@@ -422,6 +422,17 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(buildPath, 'index.html'));
 });
 
+app.get('/get-latest-uid', (req, res) => {
+  try {
+    const uid = fs.readFileSync('latest_uid.txt', 'utf-8').trim();
+    res.json({ uid });
+  } catch (err) {
+    res.status(404).json({ error: 'לא נמצא UID' });
+  }
+});
+
+
+
 app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
   await restoreAttemptsMemory();
