@@ -128,15 +128,26 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
           }
         };
       } else {
-        const uid = prompt('📥 הזן UID מהקורא (ACR122U):');
-        if (uid) {
-          setNfcMessage('📡 שולח UID לשרת...');
-          try {
-            const response = await fetch(`${SERVER_URL}/assign-nfc`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: selectedName, uid })
-            });
+  setNfcMessage('📡 מנסה למשוך UID מהשרת...');
+  try {
+    const res = await fetch('http://localhost:9000/get-latest-uid');
+    const data = await res.json();
+    const uid = data.uid;
+    if (!uid) throw new Error('UID ריק מהשרת');
+    setNfcMessage('📡 UID נמשה, שולח לשרת...');
+    const response = await fetch(`${SERVER_URL}/assign-uid`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: selectedName, uid }),
+    });
+    const result = await response.text();
+    setNfcMessage(`✅ ${result}`);
+  } catch (error) {
+    console.error('שגיאה:', error);
+    setNfcMessage('❌ שגיאה בשליפת UID או שליחה');
+  }
+}
+
             const data = await response.json();
             if (response.ok) {
               setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
