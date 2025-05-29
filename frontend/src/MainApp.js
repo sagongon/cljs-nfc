@@ -1,4 +1,3 @@
-// test
 
 import React, { useEffect, useState } from 'react';
 import './App.css';
@@ -132,12 +131,14 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
 const res = await fetch('http://localhost:9000/get-latest-uid');
 const data = await res.json();
 const uid = data.uid;
-if (!uid) throw new Error('UID ריק מהשרת');
+if (!uid) {
+  setNfcMessage('⚠️ לא נמשה UID – ודא שהצמיד הוצמד');
+  return;
+}
 
-        if (uid) {
-          setNfcMessage('📡 שולח UID לשרת...');
-          try {
-            const response = await fetch(`${SERVER_URL}/assign-nfc`, {
+setNfcMessage('📡 שולח UID לשרת...');
+try {
+  const response = await fetch(`${SERVER_URL}/assign-nfc`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: selectedName, uid })
