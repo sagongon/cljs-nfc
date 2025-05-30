@@ -127,35 +127,49 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
             setNfcMessage('❌ שגיאה בשליחת UID');
           }
         };
-      } else {
-        setNfcMessage('📡 מנסה למשוך UID מהשרת...');
-const res = await fetch('http://localhost:9000/get-latest-uid');
-const data = await res.json();
-const uid = data.uid;
-if (!uid) throw new Error('UID ריק מהשרת');
+  } else {
+  setNfcMessage('📡 ממתין להצמדת צמיד חדש...');
+  try {
+    let uid = '';
+    const maxWaitTime = 10000; // 10 שניות מקסימום המתנה
+    const pollInterval = 500;
+    const startTime = Date.now();
 
-        if (uid) {
-          setNfcMessage('📡 שולח UID לשרת...');
-          try {
-            const response = await fetch(`${SERVER_URL}/assign-nfc`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: selectedName, uid })
-            });
-            const data = await response.json();
-            if (response.ok) {
-              setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-            } else {
-              setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-            }
-          } catch (err) {
-            console.error('שגיאה בשליחת UID:', err);
-            setNfcMessage('❌ שגיאה בשליחת UID');
-          }
-        } else {
-          setNfcMessage('❌ לא הוזן UID');
-        }
+    while (!uid && Date.now() - startTime < maxWaitTime) {
+      const res = await fetch('http://localhost:9000/get-latest-uid');
+      const data = await res.json();
+      if (data && data.uid) {
+        uid = data.uid;
+        break;
       }
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+
+    if (!uid) {
+      setNfcMessage('⚠️ לא נמשה UID – ודא שהצמיד הוצמד בזמן');
+      return;
+    }
+
+    setNfcMessage('📡 UID נמשה, שולח לשרת...');
+    const response = await fetch(`${SERVER_URL}/assign-nfc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: selectedName, uid })
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
+    } else {
+      setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
+    }
+
+  } catch (error) {
+    console.error('שגיאת NFC:', error);
+    setNfcMessage('❌ שגיאה בקריאת NFC');
+  }
+}
+
     } catch (err) {
       console.error('שגיאת NFC:', err);
       setNfcMessage('❌ שגיאה בקריאת NFC');
