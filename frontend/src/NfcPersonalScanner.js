@@ -79,19 +79,20 @@ export default function NfcPersonalScanner() {
     <div style={{ padding: 20, direction: 'rtl', textAlign: 'center' }}>
       <h2>📲 צפייה בתוצאות</h2>
       {message && <p style={{ fontSize: 18 }}>{message}</p>}
-      {extraInfo && (
-        <pre style={{
-          background: '#f4f4f4',
-          padding: 10,
-          borderRadius: 8,
-          marginTop: 15,
-          direction: 'ltr',
-          textAlign: 'left',
-          whiteSpace: 'pre-wrap'
-        }}>
-          {extraInfo}
-        </pre>
-      )}
+      // {extraInfo && (
+//   <pre style={{
+//     background: '#f4f4f4',
+//     padding: 10,
+//     borderRadius: 8,
+//     marginTop: 15,
+//     direction: 'ltr',
+//     textAlign: 'left',
+//     whiteSpace: 'pre-wrap'
+//   }}>
+//     {extraInfo}
+//   </pre>
+// )}
+
       {personalData && (
         <div>
           <h3>שם: {personalData.name}</h3>
