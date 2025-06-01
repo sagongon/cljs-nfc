@@ -23,7 +23,8 @@ export default function NfcPersonalScanner() {
         setExtraInfo('...');
 
         ndef.onreading = async (event) => {
-          const uid = event.serialNumber;
+          const rawUid = event.serialNumber;
+          const uid = (rawUid || '').trim().replace(/[^a-zA-Z0-9:]/g, '');
           if (!uid) {
             setMessage('❌ לא נקלט UID');
             return;
@@ -37,6 +38,12 @@ export default function NfcPersonalScanner() {
             setExtraInfo(prev => prev + `\nURL: ${url}`);
             const response = await fetch(url);
             setExtraInfo(prev => prev + `\nסטטוס תגובה: ${response.status}`);
+
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+              const text = await response.text();
+              throw new Error(`פורמט תגובה לא תקין:\n${text.slice(0, 100)}...`);
+            }
 
             const result = await response.json();
             setExtraInfo(prev => prev + `\nתוכן שהתקבל: ${JSON.stringify(result)}`);
