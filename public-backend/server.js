@@ -455,12 +455,6 @@ app.get('/personal/:name', async (req, res) => {
   }
 });
 
-const buildPath = path.join(__dirname, 'build');
-app.use(express.static(buildPath));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
-});
-
 app.get('/get-latest-uid', (req, res) => {
   try {
     const uid = fs.readFileSync('latest_uid.txt', 'utf-8').trim();
@@ -551,4 +545,4 @@ app.post('/assign-nfc', async (req, res) => {
     res.status(500).json({ error: '×©×’×™××” ×‘×©×™×•×š UID' });
   }
 });
-"// ™‰…‰ ‹”…‰ Œ„”’Œš deploy" 
+"//                   deploy" 
