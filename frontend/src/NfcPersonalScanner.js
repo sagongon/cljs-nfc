@@ -1,39 +1,62 @@
+/* global NDEFReader */
 import React, { useEffect, useState } from 'react';
 
-const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
+const SERVER_URL = 'https://cljs-nfc.onrender.com'; // כתובת השרת שלך
 
 export default function NfcPersonalScanner() {
   const [message, setMessage] = useState('📡 מחכה לצמיד...');
   const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
-    const scanNFC = async () => {
+    const startNfcScan = async () => {
+      if (!('NDEFReader' in window)) {
+        setMessage('❌ המכשיר שלך לא תומך בקריאת NFC בדפדפן');
+        return;
+      }
+
       try {
         setScanning(true);
-        const res = await fetch('http://localhost:9000/get-latest-uid');
-        const data = await res.json();
-        const uid = data.uid;
-        if (!uid) throw new Error('לא נמשה UID');
+        const ndef = new NDEFReader();
+        await ndef.scan();
+        setMessage('📶 מחפש תג...');
 
-        setMessage('🔄 מחפש שם משויך...');
-        const response = await fetch(`${SERVER_URL}/nfc-name/${uid}`);
-        const result = await response.json();
+        ndef.onreading = async (event) => {
+          const uid = event.serialNumber;
+          if (!uid) {
+            setMessage('❌ לא נקלט UID');
+            return;
+          }
 
-        if (response.ok) {
-          const encodedName = encodeURIComponent(result.name);
-          window.location.href = `/personal/${encodedName}`;
-        } else {
-          setMessage(`❌ ${result.error}`);
-        }
+          setMessage('🔄 מחפש שם משויך...');
+          try {
+            const response = await fetch(`${SERVER_URL}/nfc-name/${uid}`);
+            const result = await response.json();
+
+            if (response.ok) {
+              const encodedName = encodeURIComponent(result.name);
+              window.location.href = `/personal/${encodedName}`;
+            } else {
+              setMessage(`❌ ${result.error}`);
+            }
+          } catch (err) {
+            setMessage('❌ שגיאה בשליפת נתונים מהשרת');
+            console.error(err);
+          }
+        };
+
+        ndef.onerror = (err) => {
+          setMessage('⚠️ שגיאה בקריאת תג');
+          console.error(err);
+        };
       } catch (err) {
         console.error(err);
-        setMessage('❌ שגיאה בקריאת UID או בשליפת שם');
+        setMessage('❌ שגיאה בהפעלת סריקת NFC');
       } finally {
         setScanning(false);
       }
     };
 
-    scanNFC();
+    startNfcScan();
   }, []);
 
   return (

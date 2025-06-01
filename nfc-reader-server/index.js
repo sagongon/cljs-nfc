@@ -65,8 +65,19 @@ nfc.on('error', err => {
   console.error('שגיאת NFC:', err);
 });
 
+// פונקציה לניקוי UID שנשמר, כדי למנוע שאריות מסריקות קודמות
+const clearLatestUID = () => {
+  try {
+    fs.writeFileSync('latest_uid.txt', '', 'utf8');
+    console.log('🧹 UID נוקה ידנית');
+  } catch (err) {
+    console.warn('⚠️ שגיאה במחיקת UID:', err);
+  }
+};
+
 // 🟢 קריאת UID לבקשת האפליקציה
 app.get('/get-latest-uid', async (req, res) => {
+  clearLatestUID();
   try {
     let attempts = 0;
     let uid = '';
