@@ -483,7 +483,9 @@ app.get('/nfc-name/:uid', async (req, res) => {
       range: 'NFCMap!A2:B',
     });
     const rows = response.data.values || [];
-    const match = rows.find(row => (row[1] || '').replace(/[:\s]/g, '').toLowerCase() === uid.replace(/[:\s]/g, '').toLowerCase());
+   const match = rows.find(row =>
+  (row[0] || '').replace(/[:\s]/g, '').toLowerCase() === uid.replace(/[:\s]/g, '').toLowerCase()
+);
 
     if (match) {
       res.json({ name: match[0] });
