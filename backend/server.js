@@ -455,10 +455,6 @@ app.get('/personal/:name', async (req, res) => {
   }
 });
 
-
-
-
-
 const buildPath = path.join(__dirname, 'build');
 app.use(express.static(buildPath));
 app.get('*', (req, res) => {
@@ -474,7 +470,6 @@ app.get('/get-latest-uid', (req, res) => {
   }
 });
 
-
 app.get('/nfc-name/:uid', async (req, res) => {
   const uid = req.params.uid.trim();
   try {
@@ -488,7 +483,7 @@ app.get('/nfc-name/:uid', async (req, res) => {
 );
 
     if (match) {
-      res.json({ name: match[0] });
+      res.json({ name: match[1] });
     } else {
       res.status(404).json({ error: 'לא נמצא שם עבור UID הזה' });
     }
@@ -498,6 +493,22 @@ app.get('/nfc-name/:uid', async (req, res) => {
   }
 });
 
+  try {
+    const doc = await docClient.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'NFCMAP!A2:B',
+    });
+
+    const rows = doc.data.values || [];
+    const match = rows.find(row => (row[0] || '').trim().toLowerCase() === uidParam);
+    if (!match) return res.status(404).json({ error: 'UID not found' });
+
+    res.json({ uid: uidParam, name: match[1] });
+  } catch (err) {
+    console.error('שגיאה בשליפת UID מ-NFCMAP:', err);
+    res.status(500).json({ error: 'שגיאה בקריאת הנתונים' });
+  }
+});
 
 
 
