@@ -1,70 +1,95 @@
-// index.js - שרת Express ל-NFC ב-Render
+// ✅ index.js – גרסה מלאה עם polling ומחיקת UID לאחר שליחה
 
 import express from 'express';
 import { NFC } from 'nfc-pcsc';
-import fetch from 'node-fetch';
 import fs from 'fs';
+import fetch from 'node-fetch';
 import cors from 'cors';
 
 const app = express();
-const port = process.env.PORT || 9000;
-
+const PORT = 9000;
 app.use(cors());
 app.use(express.json());
 
-let currentName = null;
+// שמירת UID אחרון שזוהה
+const saveUID = (uid) => {
+  const formattedUID = uid.match(/.{1,2}/g)?.join(':') || uid;
+fs.writeFileSync('latest_uid.txt', formattedUID, 'utf8');
 
-app.post('/set-name', (req, res) => {
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'Missing name' });
-  currentName = name;
-  res.json({ status: 'ok', name });
-});
+};
 
+// שליחת UID שנקלט לשרת הראשי
 const sendToSheets = async (uid) => {
-  if (!currentName) return console.log('⛔ אין שם מתחרה נבחר');
   try {
-    const res = await fetch('https://your-render-server-url.com/api/nfc-map', {
+    const res = await fetch('http://localhost:4000/register-nfc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: currentName, uid })
+      body: JSON.stringify({ uid })
     });
-    const data = await res.text();
-    console.log('✅ נשלח ל-Google Sheets:', data);
+
+    if (!res.ok) throw new Error('שגיאה בשליחת UID לשרת: ' + (await res.text()));
+
+    const text = await res.text();
+    console.log(`✅ נשלח לשרת: ${text}`);
   } catch (err) {
-    console.error('❌ שגיאה בשליחה לשרת:', err);
+    console.error('שגיאה בשליחת UID:', err);
   }
 };
 
+// התחברות לקורא NFC
 const nfc = new NFC();
 nfc.on('reader', reader => {
-  console.log('📶 קורא מחובר:', reader.name);
-  reader.autoProcessing = false;
+  console.log(`📶 קורא מחובר: ${reader.name}`);
 
-  reader.on('card', async card => {
-  const uid = card.uid;
-  console.log('🏷️ כרטיס זוהה! UID:', uid);
-
-  // כתיבה לקובץ לשימוש חיצוני (למשל מה-Frontend במחשב)
-  fs.writeFileSync('latest_uid.txt', uid);
-
-  sendToSheets(uid);
-});
-
+  reader.on('card', card => {
+    const uid = card.uid;
+    if (uid && uid.length > 2) {
+      console.log(`🏷️ UID נלכד: ${uid}`);
+      saveUID(uid);
+      sendToSheets(uid);
+    } else {
+      console.warn('⚠️ כרטיס זוהה אך UID ריק או לא תקף');
+    }
+  });
 
   reader.on('error', err => {
-    console.error(`❌ שגיאה בקורא ${reader.name}:`, err);
+    console.error(`❌ שגיאת קורא:`, err);
   });
 
   reader.on('end', () => {
-    console.log(`📴 קורא ${reader.name} נותק`);
+    console.log(`🔌 הקורא ${reader.name} נותק`);
   });
 });
 
 nfc.on('error', err => {
-  console.error('❌ שגיאה כללית ב־NFC:', err);
+  console.error('שגיאת NFC:', err);
 });
 
-app.listen(port, () => {
-  console.log(`🚀 NFC Index server רץ על פורט ${port}`);
+// 🟢 קריאת UID לבקשת האפליקציה
+app.get('/get-latest-uid', async (req, res) => {
+  try {
+    let attempts = 0;
+    let uid = '';
+
+    // ניסיון לקרוא UID כל חצי שנייה עד 5 שניות (10 ניסיונות)
+    while (attempts < 10) {
+      uid = fs.existsSync('latest_uid.txt') ? fs.readFileSync('latest_uid.txt', 'utf8').trim() : '';
+      if (uid) break;
+      await new Promise(resolve => setTimeout(resolve, 500));
+      attempts++;
+    }
+
+    if (!uid) return res.json({ uid: '' });
+
+    // מחיקת UID לאחר שליחה
+    fs.writeFileSync('latest_uid.txt', '', 'utf8');
+    res.json({ uid });
+  } catch (err) {
+    console.error('שגיאה בקריאת UID:', err);
+    res.status(500).json({ error: 'לא ניתן למשוך UID' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 NFC Index server רץ על פורט ${PORT}`);
 });

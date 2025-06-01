@@ -416,6 +416,49 @@ app.get('/live', async (req, res) => {
   }
 });
 
+app.get('/personal/:name', async (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  try {
+    const [attemptsRes, assistRes] = await Promise.all([
+      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Atempts!B2:BA' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Assist Tables!B2:BA2' }),
+    ]);
+
+    const attemptsRows = attemptsRes.data.values || [];
+    const assistScores = assistRes.data.values?.[0] || [];
+
+    const row = attemptsRows.find(r => (r[0] || '').trim() === name);
+    if (!row) return res.status(404).json({ error: 'לא נמצא מתחרה' });
+
+    const routeAttempts = row.slice(1).map(val => parseInt(val));
+    const results = routeAttempts.map((attempts, i) => {
+      const baseScore = parseInt(assistScores[i]);
+      const score = !isNaN(attempts) && !isNaN(baseScore) ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
+      return {
+        route: i + 1,
+        attempts: isNaN(attempts) ? null : attempts,
+        score: score || 0,
+        success: !isNaN(attempts),
+      };
+    });
+
+    const totalScore = results
+      .filter(r => r.success)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 7)
+      .reduce((sum, r) => sum + r.score, 0);
+
+    res.json({ name, results, totalScore });
+  } catch (err) {
+    console.error('❌ שגיאה בנתיב /personal:', err.message);
+    res.status(500).json({ error: 'שגיאה בשליפת מידע אישי' });
+  }
+});
+
+
+
+
+
 const buildPath = path.join(__dirname, 'build');
 app.use(express.static(buildPath));
 app.get('*', (req, res) => {
@@ -430,6 +473,30 @@ app.get('/get-latest-uid', (req, res) => {
     res.status(404).json({ error: 'לא נמצא UID' });
   }
 });
+
+
+app.get('/nfc-name/:uid', async (req, res) => {
+  const uid = req.params.uid.trim();
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'NFCMap!A2:B',
+    });
+    const rows = response.data.values || [];
+    const match = rows.find(row => (row[1] || '').replace(/[:\s]/g, '').toLowerCase() === uid.replace(/[:\s]/g, '').toLowerCase());
+
+    if (match) {
+      res.json({ name: match[0] });
+    } else {
+      res.status(404).json({ error: 'לא נמצא שם עבור UID הזה' });
+    }
+  } catch (err) {
+    console.error('שגיאה בשליפת שם לפי UID:', err);
+    res.status(500).json({ error: 'שגיאה בשרת' });
+  }
+});
+
+
 
 
 
