@@ -1,101 +1,110 @@
-/* global NDEFReader */
 import React, { useEffect, useState } from 'react';
 
 const SERVER_URL = 'https://cljs-nfc.onrender.com'; // כתובת השרת שלך
 
-export default function NfcPersonalScanner() {
-  const [message, setMessage] = useState('📡 מחכה לצמיד...');
-  const [extraInfo, setExtraInfo] = useState('');
-  const [scanning, setScanning] = useState(false);
+function NfcPersonalScanner() {
+  const [message, setMessage] = useState('📡 מחפש תג NFC...');
+  const [personalData, setPersonalData] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const startNfcScan = async () => {
-      if (!('NDEFReader' in window)) {
-        setMessage('❌ המכשיר שלך לא תומך בקריאת NFC בדפדפן');
-        return;
-      }
-
+    async function scanNFC() {
       try {
-        setScanning(true);
-        const ndef = new NDEFReader();
-        await ndef.scan();
-        setMessage('📶 מחפש תג...');
-        setExtraInfo('...');
+        console.log('📡 מתחיל סריקת NFC דרך get-latest-uid...');
+        setMessage('📡 סרוק את הצמיד שלך...');
+        
+        const pollTimeout = 10000;
+        const start = Date.now();
 
-        ndef.onreading = async (event) => {
-          const rawUid = event.serialNumber;
-          const uid = (rawUid || '').trim().replace(/[^a-zA-Z0-9:]/g, '');
-          if (!uid) {
-            setMessage('❌ לא נקלט UID');
-            return;
+        let uid = null;
+        while (!uid && Date.now() - start < pollTimeout) {
+          const response = await fetch(`${SERVER_URL}/get-latest-uid`);
+          const data = await response.json();
+          if (data.uid) {
+            uid = data.uid;
+            console.log('✅ UID זוהה:', uid);
+            break;
           }
+          await new Promise((res) => setTimeout(res, 500));
+        }
 
-          setMessage('🔄 מחפש שם משויך...');
-          setExtraInfo(`UID שנקלט: ${uid}`);
+        if (!uid) {
+          setMessage('⛔ לא זוהה תג NFC. נסה שוב');
+          console.warn('⛔ לא התקבל UID לאחר 10 שניות');
+          return;
+        }
 
-          try {
-            const url = `${SERVER_URL}/nfc-name/${uid}`;
-            setExtraInfo(prev => prev + `\nURL: ${url}`);
-            const response = await fetch(url);
-            setExtraInfo(prev => prev + `\nסטטוס תגובה: ${response.status}`);
+        setMessage('🔍 טוען נתונים...');
 
-            const contentType = response.headers.get('content-type') || '';
-            if (!contentType.includes('application/json')) {
-              const text = await response.text();
-              throw new Error(`פורמט תגובה לא תקין:\n${text.slice(0, 100)}...`);
-            }
+        // קריאה לשרת לקבלת שם
+        console.log('🔗 פונה לשרת לקבלת שם לפי UID...');
+        const nameRes = await fetch(`${SERVER_URL}/nfc-name/${encodeURIComponent(uid)}`);
+        const nameData = await nameRes.json();
 
-            const result = await response.json();
-            setExtraInfo(prev => prev + `\nתוכן שהתקבל: ${JSON.stringify(result)}`);
+        if (!nameRes.ok || !nameData.name) {
+          setMessage('⛔ שגיאה בשליפת שם מהשרת');
+          console.error('⛔ שגיאה בשליפת שם:', nameData);
+          return;
+        }
 
-            if (response.ok) {
-              const encodedName = encodeURIComponent(result.name);
-              window.location.href = `/personal/${encodedName}`;
-            } else {
-              setMessage(`❌ ${result.error}`);
-            }
-          } catch (err) {
-            setMessage('❌ שגיאה בשליפת נתונים מהשרת');
-            setExtraInfo(`שגיאה: ${err.message}`);
-          }
-        };
+        const name = nameData.name;
+        console.log('✅ שם שנמצא:', name);
 
-        ndef.onerror = (err) => {
-          setMessage('⚠️ שגיאה בקריאת תג');
-          setExtraInfo(`שגיאה ב־ndef.onerror: ${err}`);
-        };
+        // שליפת נתונים אישיים
+        const personalRes = await fetch(`${SERVER_URL}/personal/${encodeURIComponent(name)}`);
+        const personal = await personalRes.json();
+
+        if (!personalRes.ok || personal.error) {
+          setMessage('⛔ שגיאה בשליפת נתונים מהשרת');
+          console.error('⛔ שגיאה בשליפת נתונים:', personal);
+          return;
+        }
+
+        console.log('📊 נתונים שהתקבלו:', personal);
+        setPersonalData(personal);
+        setMessage(null);
       } catch (err) {
-        setMessage('❌ שגיאה בהפעלת סריקת NFC');
-        setExtraInfo(`שגיאה כללית: ${err.message}`);
-      } finally {
-        setScanning(false);
+        console.error('❌ שגיאה כללית:', err);
+        setMessage('❌ שגיאה כללית. נסה שוב מאוחר יותר');
       }
-    };
+    }
 
-    startNfcScan();
+    scanNFC();
   }, []);
 
   return (
-    <div style={{ textAlign: 'center', padding: 30 }}>
-      <h2>📲 סרוק את הצמיד שלך</h2>
-      <p>{message}</p>
-      {extraInfo && (
-        <pre
-          style={{
-            background: '#f0f0f0',
-            color: '#333',
-            padding: 10,
-            borderRadius: 8,
-            direction: 'ltr',
-            textAlign: 'left',
-            marginTop: 20,
-            whiteSpace: 'pre-wrap'
-          }}
-        >
-          {extraInfo}
-        </pre>
+    <div style={{ padding: 20, direction: 'rtl', textAlign: 'center' }}>
+      <h2>📲 צפייה בתוצאות</h2>
+      {message && <p style={{ fontSize: 18 }}>{message}</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {personalData && (
+        <div>
+          <h3>שם: {personalData.name}</h3>
+          <p>ניקוד כולל: {personalData.totalScore}</p>
+          <table style={{ margin: 'auto', borderCollapse: 'collapse', width: '90%' }}>
+            <thead>
+              <tr>
+                <th>מסלול</th>
+                <th>ניסיונות</th>
+                <th>ניקוד</th>
+                <th>✔️</th>
+              </tr>
+            </thead>
+            <tbody>
+              {personalData.results.map((r) => (
+                <tr key={r.route}>
+                  <td>{r.route}</td>
+                  <td>{r.attempts ?? '-'}</td>
+                  <td>{r.score}</td>
+                  <td>{r.success ? '✅' : '❌'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-      {scanning && <p>⏳ ממתין...</p>}
     </div>
   );
 }
+
+export default NfcPersonalScanner;
