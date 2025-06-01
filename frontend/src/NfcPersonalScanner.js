@@ -1,3 +1,4 @@
+
 /* global NDEFReader */
 import React, { useEffect, useState } from 'react';
 
@@ -35,10 +36,8 @@ export default function NfcPersonalScanner() {
           setExtraInfo(`UID: ${uid}`);
 
           try {
-            // שלב 1 – בקשת שם לפי UID
             const nameRes = await fetch(`${SERVER_URL}/nfc-name/${uid}`);
             const nameData = await nameRes.json();
-            setExtraInfo(prev => prev + `\nResponse (/nfc-name): ${JSON.stringify(nameData)}`);
 
             if (!nameRes.ok || !nameData.name) {
               setMessage('❌ UID לא נמצא בגיליון NFCMAP');
@@ -48,13 +47,11 @@ export default function NfcPersonalScanner() {
             const name = nameData.name;
             setMessage(`📋 מוצגות התוצאות של ${name}`);
 
-            // שלב 2 – בקשת תוצאות לפי שם
             const personalRes = await fetch(`${SERVER_URL}/personal/${encodeURIComponent(name)}`);
             const personal = await personalRes.json();
 
             if (!personalRes.ok || personal.error) {
               setMessage('❌ שגיאה בשליפת נתונים');
-              setExtraInfo(prev => prev + `\nResponse (/personal): ${JSON.stringify(personal)}`);
               return;
             }
 
@@ -79,12 +76,12 @@ export default function NfcPersonalScanner() {
     <div style={{ padding: 20, direction: 'rtl', textAlign: 'center' }}>
       <h2>📲 צפייה בתוצאות</h2>
       {message && <p style={{ fontSize: 18 }}>{message}</p>}
-  
 
       {personalData && (
         <div>
           <h3>שם: {personalData.name}</h3>
           <p>ניקוד כולל: {personalData.totalScore}</p>
+          <p>מסלולים שהושלמו: {personalData.results.filter(r => r.success).length}/7</p>
           <table style={{ margin: 'auto', borderCollapse: 'collapse', width: '90%' }}>
             <thead>
               <tr>
