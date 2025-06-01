@@ -4,8 +4,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import MainApp from './MainApp.js';
 import QueueScanner from './QueueScanner.js';
 import LiveBoard from './LiveBoard.js';
-import PersonalLiveBoard from './PersonalLiveBoard';
-import NfcPersonalScanner from './NfcPersonalScanner';
+import PersonalLiveBoard from './PersonalLiveBoard.js';
+import NfcPersonalScanner from './NfcPersonalScanner.js';
 
 const App = () => (
   <Router>
