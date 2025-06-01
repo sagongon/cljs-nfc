@@ -1,7 +1,7 @@
 /* global NDEFReader */
 import React, { useEffect, useState } from 'react';
 
-const SERVER_URL = 'https://cljs-nfc.onrender.com'; // כתובת השרת שלך
+const SERVER_URL = 'https://personalliveresults.onrender.com'; // כתובת השרת שלך
 
 export default function NfcPersonalScanner() {
   const [message, setMessage] = useState('📡 מחכה לצמיד...');
