@@ -551,3 +551,4 @@ app.post('/assign-nfc', async (req, res) => {
     res.status(500).json({ error: '×©×’×™××” ×‘×©×™×•×š UID' });
   }
 });
+"// ™‰…‰ ‹”…‰ Œ„”’Œš deploy" 
