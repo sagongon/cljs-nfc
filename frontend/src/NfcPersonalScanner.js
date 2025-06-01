@@ -5,6 +5,7 @@ const SERVER_URL = 'https://cljs-nfc.onrender.com'; // כתובת השרת של�
 
 export default function NfcPersonalScanner() {
   const [message, setMessage] = useState('📡 מחכה לצמיד...');
+  const [extraInfo, setExtraInfo] = useState('');
   const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
@@ -19,47 +20,46 @@ export default function NfcPersonalScanner() {
         const ndef = new NDEFReader();
         await ndef.scan();
         setMessage('📶 מחפש תג...');
-        console.log('🔍 התחלת סריקת NFC');
+        setExtraInfo('...');
 
         ndef.onreading = async (event) => {
           const uid = event.serialNumber;
-          console.log('📥 UID שהתקבל:', uid);
           if (!uid) {
             setMessage('❌ לא נקלט UID');
             return;
           }
 
           setMessage('🔄 מחפש שם משויך...');
+          setExtraInfo(`UID שנקלט: ${uid}`);
+
           try {
             const url = `${SERVER_URL}/nfc-name/${uid}`;
-            console.log('🌐 מבצע קריאה לשרת:', url);
+            setExtraInfo(prev => prev + `\nURL: ${url}`);
             const response = await fetch(url);
-            console.log('📤 תגובת שרת:', response);
+            setExtraInfo(prev => prev + `\nסטטוס תגובה: ${response.status}`);
 
             const result = await response.json();
-            console.log('📦 תוכן JSON שהתקבל:', result);
+            setExtraInfo(prev => prev + `\nתוכן שהתקבל: ${JSON.stringify(result)}`);
 
             if (response.ok) {
               const encodedName = encodeURIComponent(result.name);
-              console.log('✅ שם משויך שנמצא:', result.name);
               window.location.href = `/personal/${encodedName}`;
             } else {
               setMessage(`❌ ${result.error}`);
-              console.warn('⚠️ שגיאת שרת:', result.error);
             }
           } catch (err) {
             setMessage('❌ שגיאה בשליפת נתונים מהשרת');
-            console.error('🚨 שגיאה בביצוע fetch:', err);
+            setExtraInfo(`שגיאה: ${err.message}`);
           }
         };
 
         ndef.onerror = (err) => {
           setMessage('⚠️ שגיאה בקריאת תג');
-          console.error('📛 שגיאת onerror של NFC:', err);
+          setExtraInfo(`שגיאה ב־ndef.onerror: ${err}`);
         };
       } catch (err) {
-        console.error('🚫 שגיאה בהפעלת סריקה:', err);
         setMessage('❌ שגיאה בהפעלת סריקת NFC');
+        setExtraInfo(`שגיאה כללית: ${err.message}`);
       } finally {
         setScanning(false);
       }
@@ -72,6 +72,22 @@ export default function NfcPersonalScanner() {
     <div style={{ textAlign: 'center', padding: 30 }}>
       <h2>📲 סרוק את הצמיד שלך</h2>
       <p>{message}</p>
+      {extraInfo && (
+        <pre
+          style={{
+            background: '#f0f0f0',
+            color: '#333',
+            padding: 10,
+            borderRadius: 8,
+            direction: 'ltr',
+            textAlign: 'left',
+            marginTop: 20,
+            whiteSpace: 'pre-wrap'
+          }}
+        >
+          {extraInfo}
+        </pre>
+      )}
       {scanning && <p>⏳ ממתין...</p>}
     </div>
   );
