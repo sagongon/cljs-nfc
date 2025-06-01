@@ -493,7 +493,11 @@ app.get('/nfc-name/:uid', async (req, res) => {
   }
 });
 
-  
+ app.get('/', (req, res) => {
+  res.send('🟢 Backend server is running');
+});
+ 
+
 app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
   await restoreAttemptsMemory();
