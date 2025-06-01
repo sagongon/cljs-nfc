@@ -493,7 +493,16 @@ app.get('/nfc-name/:uid', async (req, res) => {
   }
 });
 
-  
+app.get('/nfc-name/:uid', async (req, res) => {
+  const uidParam = req.params.uid?.trim().replace(/[^a-zA-Z0-9:]/g, '').toLowerCase();
+  if (!uidParam) return res.status(400).json({ error: 'Missing UID' });
+
+  try {
+    const doc = await docClient.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'NFCMAP!A2:B',
+    });
+
     const rows = doc.data.values || [];
     const match = rows.find(row => (row[0] || '').trim().toLowerCase() === uidParam);
     if (!match) return res.status(404).json({ error: 'UID not found' });
