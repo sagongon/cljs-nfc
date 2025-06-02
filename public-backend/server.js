@@ -442,7 +442,6 @@ app.get('/personal/:name', async (req, res) => {
       const success = history.includes('T');
       const attempts = history.length;
       const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
-
       return { route, attempts, score, success };
     });
 
