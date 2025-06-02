@@ -117,10 +117,6 @@ export default function NfcPersonalScanner() {
               })}
             </tbody>
           </table>
-
-          <div style={{ textAlign: 'left', direction: 'ltr', fontSize: 12, background: '#222', color: '#eee', padding: 10, marginTop: 20 }}>
-            <h4>🔎 DEBUG: Response JSON</h4>
-            <pre>{JSON.stringify(personalData, null, 2)}</pre>
           </div>
         </div>
       )}
