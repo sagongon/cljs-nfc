@@ -428,7 +428,7 @@ app.get('/personal/:name', async (req, res) => {
       }),
       sheets.spreadsheets.values.get({
         spreadsheetId: SHEET_ID,
-        range: 'AllAttempts!A2:D',
+        range: 'AllAttempts!A2:C',
       }),
     ]);
 
@@ -446,22 +446,21 @@ app.get('/personal/:name', async (req, res) => {
     const results = [];
     for (let route = 1; route <= 52; route++) {
       const baseScore = parseInt(assistScores[route - 1] || '0');
-      const history = attemptHistory[route] || [];
+      const fullHistory = attemptHistory[route] || [];
 
-      let lastSeries = [];
-      let temp = [];
-
-      for (const res of history) {
-        if (res === '') {
-          temp = []; // reset on empty (indicates judge reset)
-        } else if (res === 'X' || res === 'T') {
-          temp.push(res);
-          lastSeries = [...temp]; // update last meaningful segment
+      // Find last RESET and take only entries after it
+      let lastResetIndex = -1;
+      for (let i = fullHistory.length - 1; i >= 0; i--) {
+        if (fullHistory[i] === 'RESET') {
+          lastResetIndex = i;
+          break;
         }
       }
+      const activeSeries = fullHistory.slice(lastResetIndex + 1);
+      const attemptsOnly = activeSeries.filter(v => v === 'X' || v === 'T');
 
-      const attempts = lastSeries.length;
-      const success = lastSeries.includes('T');
+      const attempts = attemptsOnly.length;
+      const success = attemptsOnly.includes('T');
       const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
 
       if (attempts > 0 || success) {
