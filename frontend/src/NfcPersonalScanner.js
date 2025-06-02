@@ -71,6 +71,13 @@ export default function NfcPersonalScanner() {
     startNfcScan();
   }, []);
 
+  // מחשב את המסלולים המובילים (7)
+  const topRoutes = personalData?.results
+    ?.filter(r => r.success)
+    ?.sort((a, b) => b.score - a.score)
+    ?.slice(0, 7)
+    ?.map(r => r.route) || [];
+
   return (
     <div style={{ padding: 20, direction: 'rtl', textAlign: 'center' }}>
       <h2>📲 צפייה בתוצאות</h2>
@@ -98,28 +105,31 @@ export default function NfcPersonalScanner() {
                 const { success, score = 0, attempts = null } = r;
 
                 let bgColor = '#f0f0f0'; // אפור - לא נוסה
-           if (success) {
-          bgColor = '#e0ffe0'; // ירוק - הצלחה
-             } else if (attempts === 5) {
-                bgColor = '#fff5cc'; // כתום בהיר - כישלון אחרי 5 ניסיונות
+                if (success) {
+                  bgColor = '#e0ffe0'; // ירוק - הצלחה
+                } else if (attempts === 5) {
+                  bgColor = '#fff5cc'; // כתום בהיר - כישלון אחרי 5 ניסיונות
                 } else if (attempts != null) {
-               bgColor = '#fff0f0'; // ורוד - כישלון (פחות מ-5 ניסיונות)
-               }
+                  bgColor = '#fff0f0'; // ורוד - כישלון (פחות מ-5 ניסיונות)
+                }
 
                 let attemptDisplay = '-';
                 if (attempts != null) {
-                if (!success && attempts === 4) {
-              attemptDisplay = <span style={{ color: '#ff9900', fontWeight: 'bold' }}>{attempts}</span>; // כתום בהיר 
-              } else if (!success && attempts === 5) {
-        attemptDisplay = <span style={{ color: '#cc0000', fontWeight: 'bold' }}>{attempts}</span>; // אדום
-       } else {
-         attemptDisplay = attempts;
-          }
-            }
+                  if (!success && attempts === 4) {
+                    attemptDisplay = <span style={{ color: '#ff9900', fontWeight: 'bold' }}>{attempts}</span>;
+                  } else if (!success && attempts === 5) {
+                    attemptDisplay = <span style={{ color: '#cc0000', fontWeight: 'bold' }}>{attempts}</span>;
+                  } else {
+                    attemptDisplay = attempts;
+                  }
+                }
+
+                const isTopRoute = topRoutes.includes(routeNum);
+                const routeLabel = isTopRoute ? `⭐ ${routeNum}` : routeNum;
 
                 return (
                   <tr key={routeNum} style={{ backgroundColor: bgColor }}>
-                    <td>{routeNum}</td>
+                    <td>{routeLabel}</td>
                     <td>{attemptDisplay}</td>
                     <td>{score}</td>
                     <td>{success ? '✅' : attempts != null ? '❌' : ''}</td>
@@ -128,8 +138,8 @@ export default function NfcPersonalScanner() {
               })}
             </tbody>
           </table>
-          </div>
-             )}
+        </div>
+      )}
     </div>
   );
 }
