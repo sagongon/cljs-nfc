@@ -94,7 +94,7 @@ export default function NfcPersonalScanner() {
               {personalData.results.map((r) => (
                 <tr key={r.route} style={{ backgroundColor: r.success ? '#e0ffe0' : '#ffe0e0' }}>
                   <td>{r.route}</td>
-                  <td>{r.attempts ?? '-'}</td>
+                  <td>{r.attempts != null ? r.attempts : '-'}</td>
                   <td>{r.score}</td>
                   <td>{r.success ? '✅' : r.attempts ? '❌' : '-'}</td>
                 </tr>
