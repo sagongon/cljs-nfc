@@ -97,19 +97,18 @@ export default function NfcPersonalScanner() {
                   <td>{r.route}</td>
                   <td>{r.attempts != null ? r.attempts : '-'}</td>
                   <td>{r.score}</td>
-                  <td>{r.success ? '✅' : r.attempts ? '❌' : '-'}</td>
+                  <td>{r.success ? '✅' : '❌'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-<div style={{ textAlign: 'left', direction: 'ltr', fontSize: 12, background: '#222', color: '#eee', padding: 10, marginTop: 20 }}>
-  <h4>🔎 DEBUG: Response JSON</h4>
-  <pre>{JSON.stringify(personalData, null, 2)}</pre>
-</div>
+
+          <div style={{ textAlign: 'left', direction: 'ltr', fontSize: 12, background: '#222', color: '#eee', padding: 10, marginTop: 20 }}>
+            <h4>🔎 DEBUG: Response JSON</h4>
+            <pre>{JSON.stringify(personalData, null, 2)}</pre>
+          </div>
         </div>
       )}
     </div>
   );
 }
-
-
