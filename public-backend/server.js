@@ -418,6 +418,8 @@ app.get('/live', async (req, res) => {
 
 app.get('/personal/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
+  console.log("📊 personal route activated for", name); // ← DEBUG indication
+
   try {
     const [assistRes, allAttemptsRes] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Assist Tables!B2:BA2' }),
@@ -444,19 +446,6 @@ app.get('/personal/:name', async (req, res) => {
       const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
       return { route, attempts, score, success };
     });
-
-    const totalScore = results
-      .filter(r => r.success)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 7)
-      .reduce((sum, r) => sum + r.score, 0);
-
-    res.json({ name, results, totalScore });
-  } catch (err) {
-    console.error('❌ שגיאה בנתיב /personal:', err.message);
-    res.status(500).json({ error: 'שגיאה בשליפת מידע אישי' });
-  }
-});
 
     const totalScore = results
       .filter(r => r.success)
