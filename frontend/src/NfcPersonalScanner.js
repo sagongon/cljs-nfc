@@ -1,7 +1,7 @@
 /* global NDEFReader */
 import React, { useEffect, useState } from 'react';
 
-const SERVER_URL = 'https://personalliveresults.onrender.com'; // כתובת השרת שלך
+const SERVER_URL = 'https://personalliveresults.onrender.com';
 
 export default function NfcPersonalScanner() {
   const [message, setMessage] = useState('📡 מחכה לצמיד...');
@@ -75,6 +75,7 @@ export default function NfcPersonalScanner() {
     <div style={{ padding: 20, direction: 'rtl', textAlign: 'center' }}>
       <h2>📲 צפייה בתוצאות</h2>
       {message && <p style={{ fontSize: 18 }}>{message}</p>}
+      <p style={{ fontSize: 14, color: '#777' }}>🔥 = ניסיון אחרון לפני חסימה</p>
 
       {personalData && (
         <div>
@@ -85,21 +86,39 @@ export default function NfcPersonalScanner() {
           <table style={{ margin: 'auto', borderCollapse: 'collapse', width: '90%' }}>
             <thead>
               <tr>
-                <th>מסלול</th>
-                <th>ניסיונות</th>
-                <th>ניקוד</th>
                 <th>✔️</th>
+                <th>ניקוד</th>
+                <th>ניסיונות</th>
+                <th>מסלול</th>
               </tr>
             </thead>
             <tbody>
-              {personalData.results.map((r) => (
-                <tr key={r.route} style={{ backgroundColor: r.success ? '#e0ffe0' : '#ffe0e0' }}>
-                  <td>{r.route}</td>
-                  <td>{r.attempts != null ? r.attempts : '-'}</td>
-                  <td>{r.score}</td>
-                  <td>{r.success ? '✅' : '❌'}</td>
-                </tr>
-              ))}
+              {Array.from({ length: 30 }, (_, i) => {
+                const routeNum = i + 1;
+                const r = personalData.results.find(r => r.route === routeNum) || {};
+                const { success, score = 0, attempts = null } = r;
+
+                let bgColor = '#f0f0f0'; // אפור - לא נוסה
+                if (success) bgColor = '#e0ffe0'; // ירוק - הצלחה
+                else if (attempts != null) bgColor = '#fff0f0'; // ורוד - כישלון בלבד
+
+                let attemptDisplay = '-';
+                if (attempts != null) {
+                  attemptDisplay = attempts;
+                  if (attempts === 4 && !success) {
+                    attemptDisplay += ' 🔥';
+                  }
+                }
+
+                return (
+                  <tr key={routeNum} style={{ backgroundColor: bgColor }}>
+                    <td>{success ? '✅' : attempts != null ? '❌' : ''}</td>
+                    <td>{score}</td>
+                    <td>{attemptDisplay}</td>
+                    <td>{routeNum}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
