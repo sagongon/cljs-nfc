@@ -108,8 +108,14 @@ export default function NfcPersonalScanner() {
 
                 let attemptDisplay = '-';
                 if (attempts != null) {
-                  attemptDisplay = attempts;
-                }
+                if (!success && attempts === 4) {
+              attemptDisplay = <span style={{ color: '#ff9900', fontWeight: 'bold' }}>{attempts}</span>; // כתום בהיר 
+              } else if (!success && attempts === 5) {
+        attemptDisplay = <span style={{ color: '#cc0000', fontWeight: 'bold' }}>{attempts}</span>; // אדום
+       } else {
+         attemptDisplay = attempts;
+          }
+            }
 
                 return (
                   <tr key={routeNum} style={{ backgroundColor: bgColor }}>
