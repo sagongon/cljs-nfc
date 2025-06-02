@@ -1,4 +1,3 @@
-
 /* global NDEFReader */
 import React, { useEffect, useState } from 'react';
 
@@ -93,11 +92,11 @@ export default function NfcPersonalScanner() {
             </thead>
             <tbody>
               {personalData.results.map((r) => (
-                <tr key={r.route}>
+                <tr key={r.route} style={{ backgroundColor: r.success ? '#e0ffe0' : '#ffe0e0' }}>
                   <td>{r.route}</td>
                   <td>{r.attempts ?? '-'}</td>
                   <td>{r.score}</td>
-                  <td>{r.success ? '✅' : '❌'}</td>
+                  <td>{r.success ? '✅' : r.attempts ? '❌' : '-'}</td>
                 </tr>
               ))}
             </tbody>
