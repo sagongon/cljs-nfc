@@ -98,6 +98,7 @@ export default function NfcPersonalScanner() {
                 <th>ניסיונות</th>
                 <th>ניקוד</th>
                 <th>✔️</th>
+                <th>🏅</th>
               </tr>
             </thead>
             <tbody>
@@ -127,14 +128,14 @@ export default function NfcPersonalScanner() {
                 }
 
                 const isTopRoute = topRoutes.includes(routeNum);
-                const cellStyle = isTopRoute ? { backgroundColor: '#fff9cc' } : {};
 
                 return (
                   <tr key={routeNum} style={{ backgroundColor: bgColor }}>
-                    <td style={cellStyle}>{routeNum}</td>
+                    <td>{routeNum}</td>
                     <td>{attemptDisplay}</td>
                     <td>{score}</td>
                     <td>{success ? '✅' : attempts != null ? '❌' : ''}</td>
+                    <td>{isTopRoute ? '🏅' : ''}</td>
                   </tr>
                 );
               })}
