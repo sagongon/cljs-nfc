@@ -98,8 +98,13 @@ export default function NfcPersonalScanner() {
                 const { success, score = 0, attempts = null } = r;
 
                 let bgColor = '#f0f0f0'; // אפור - לא נוסה
-                if (success) bgColor = '#e0ffe0'; // ירוק - הצלחה
-                else if (attempts != null) bgColor = '#fff0f0'; // ורוד - כישלון בלבד
+           if (success) {
+          bgColor = '#e0ffe0'; // ירוק - הצלחה
+             } else if (attempts === 5) {
+                bgColor = '#fff5cc'; // כתום בהיר - כישלון אחרי 5 ניסיונות
+                } else if (attempts != null) {
+               bgColor = '#fff0f0'; // ורוד - כישלון (פחות מ-5 ניסיונות)
+               }
 
                 let attemptDisplay = '-';
                 if (attempts != null) {
