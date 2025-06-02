@@ -75,7 +75,6 @@ export default function NfcPersonalScanner() {
     <div style={{ padding: 20, direction: 'rtl', textAlign: 'center' }}>
       <h2>📲 צפייה בתוצאות</h2>
       {message && <p style={{ fontSize: 18 }}>{message}</p>}
-      <p style={{ fontSize: 14, color: '#777' }}>🔥 = ניסיון אחרון לפני חסימה</p>
 
       {personalData && (
         <div>
@@ -86,10 +85,10 @@ export default function NfcPersonalScanner() {
           <table style={{ margin: 'auto', borderCollapse: 'collapse', width: '90%' }}>
             <thead>
               <tr>
-                <th>✔️</th>
-                <th>ניקוד</th>
-                <th>ניסיונות</th>
                 <th>מסלול</th>
+                <th>ניסיונות</th>
+                <th>ניקוד</th>
+                <th>✔️</th>
               </tr>
             </thead>
             <tbody>
@@ -105,17 +104,14 @@ export default function NfcPersonalScanner() {
                 let attemptDisplay = '-';
                 if (attempts != null) {
                   attemptDisplay = attempts;
-                  if (attempts === 4 && !success) {
-                    attemptDisplay += ' 🔥';
-                  }
                 }
 
                 return (
                   <tr key={routeNum} style={{ backgroundColor: bgColor }}>
-                    <td>{success ? '✅' : attempts != null ? '❌' : ''}</td>
-                    <td>{score}</td>
-                    <td>{attemptDisplay}</td>
                     <td>{routeNum}</td>
+                    <td>{attemptDisplay}</td>
+                    <td>{score}</td>
+                    <td>{success ? '✅' : attempts != null ? '❌' : ''}</td>
                   </tr>
                 );
               })}
