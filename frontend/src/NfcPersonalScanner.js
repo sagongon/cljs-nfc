@@ -118,8 +118,7 @@ export default function NfcPersonalScanner() {
             </tbody>
           </table>
           </div>
-        </div>
-      )}
+             )}
     </div>
   );
 }
