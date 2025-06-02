@@ -376,7 +376,7 @@ app.get('/live', async (req, res) => {
   try {
     const [competitorsRes, attemptsRes, assistRes] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Competitors!B2:H' }),
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Atempts!B2:BA' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Atempts!C2:AZ' }),
       sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Assist Tables!B2:BA2' }),
     ]);
 
@@ -420,7 +420,7 @@ app.get('/personal/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
     const [attemptsRes, assistRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Atempts!B2:BA' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Atempts!B2:AZ' }),
       sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Assist Tables!B2:BA2' }),
     ]);
 
