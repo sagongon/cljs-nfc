@@ -71,10 +71,12 @@ export default function NfcPersonalScanner() {
     startNfcScan();
   }, []);
 
-  // מחשב את המסלולים המובילים (7)
   const topRoutes = personalData?.results
     ?.filter(r => r.success)
-    ?.sort((a, b) => b.score - a.score)
+    ?.sort((a, b) => {
+      if (b.score === a.score) return b.route - a.route;
+      return b.score - a.score;
+    })
     ?.slice(0, 7)
     ?.map(r => r.route) || [];
 
@@ -104,13 +106,13 @@ export default function NfcPersonalScanner() {
                 const r = personalData.results.find(r => r.route === routeNum) || {};
                 const { success, score = 0, attempts = null } = r;
 
-                let bgColor = '#f0f0f0'; // אפור - לא נוסה
+                let bgColor = '#f0f0f0';
                 if (success) {
-                  bgColor = '#e0ffe0'; // ירוק - הצלחה
+                  bgColor = '#e0ffe0';
                 } else if (attempts === 5) {
-                  bgColor = '#fff5cc'; // כתום בהיר - כישלון אחרי 5 ניסיונות
+                  bgColor = '#fff5cc';
                 } else if (attempts != null) {
-                  bgColor = '#fff0f0'; // ורוד - כישלון (פחות מ-5 ניסיונות)
+                  bgColor = '#fff0f0';
                 }
 
                 let attemptDisplay = '-';
@@ -125,11 +127,11 @@ export default function NfcPersonalScanner() {
                 }
 
                 const isTopRoute = topRoutes.includes(routeNum);
-                const routeLabel = isTopRoute ? `⭐ ${routeNum}` : routeNum;
+                const cellStyle = isTopRoute ? { backgroundColor: '#fff9cc' } : {};
 
                 return (
                   <tr key={routeNum} style={{ backgroundColor: bgColor }}>
-                    <td>{routeLabel}</td>
+                    <td style={cellStyle}>{routeNum}</td>
                     <td>{attemptDisplay}</td>
                     <td>{score}</td>
                     <td>{success ? '✅' : attempts != null ? '❌' : ''}</td>
