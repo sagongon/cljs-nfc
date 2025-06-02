@@ -419,28 +419,45 @@ app.get('/live', async (req, res) => {
 app.get('/personal/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
-    const [attemptsRes, assistRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Atempts!B2:AZ' }),
+    const [assistRes, allAttemptsRes] = await Promise.all([
       sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Assist Tables!B2:BA2' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'AllAttempts!A2:C' }),
     ]);
 
-    const attemptsRows = attemptsRes.data.values || [];
     const assistScores = assistRes.data.values?.[0] || [];
+    const allAttemptsRows = allAttemptsRes.data.values || [];
 
-    const row = attemptsRows.find(r => (r[0] || '').trim() === name);
-    if (!row) return res.status(404).json({ error: 'לא נמצא מתחרה' });
+    const attemptHistory = {};
+    for (const [rowName, routeStr, result] of allAttemptsRows) {
+      if (rowName !== name) continue;
+      const route = parseInt(routeStr);
+      if (!attemptHistory[route]) attemptHistory[route] = [];
+      if (result === 'X' || result === 'T') attemptHistory[route].push(result);
+    }
 
-    const routeAttempts = row.slice(1).map(val => parseInt(val));
-    const results = routeAttempts.map((attempts, i) => {
-      const baseScore = parseInt(assistScores[i]);
-      const score = !isNaN(attempts) && !isNaN(baseScore) ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
-      return {
-        route: i + 1,
-        attempts: isNaN(attempts) ? null : attempts,
-        score: score || 0,
-        success: !isNaN(attempts),
-      };
+    const results = Object.keys(attemptHistory).map(routeStr => {
+      const route = parseInt(routeStr);
+      const history = attemptHistory[route];
+      const baseScore = parseInt(assistScores[route - 1]);
+      const success = history.includes('T');
+      const attempts = history.length;
+      const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
+
+      return { route, attempts, score, success };
     });
+
+    const totalScore = results
+      .filter(r => r.success)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 7)
+      .reduce((sum, r) => sum + r.score, 0);
+
+    res.json({ name, results, totalScore });
+  } catch (err) {
+    console.error('❌ שגיאה בנתיב /personal:', err.message);
+    res.status(500).json({ error: 'שגיאה בשליפת מידע אישי' });
+  }
+});
 
     const totalScore = results
       .filter(r => r.success)
