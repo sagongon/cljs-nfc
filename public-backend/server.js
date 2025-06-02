@@ -418,12 +418,18 @@ app.get('/live', async (req, res) => {
 
 app.get('/personal/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
-  console.log("📊 personal route activated for", name); // ← DEBUG indication
+  console.log("📊 personal route activated for", name);
 
   try {
     const [assistRes, allAttemptsRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Assist Tables!B2:BA2' }),
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'AllAttempts!A2:C' }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SHEET_ID,
+        range: 'Assist Tables!B2:BA2',
+      }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SHEET_ID,
+        range: 'AllAttempts!A2:D',
+      }),
     ]);
 
     const assistScores = assistRes.data.values?.[0] || [];
@@ -434,21 +440,39 @@ app.get('/personal/:name', async (req, res) => {
       if (rowName !== name) continue;
       const route = parseInt(routeStr);
       if (!attemptHistory[route]) attemptHistory[route] = [];
-      if (result === 'X' || result === 'T') attemptHistory[route].push(result);
+      attemptHistory[route].push(result);
     }
 
-    const results = Object.keys(attemptHistory).map(routeStr => {
-      const route = parseInt(routeStr);
-      const history = attemptHistory[route];
-      const baseScore = parseInt(assistScores[route - 1]);
-      const success = history.includes('T');
-      const attempts = history.length;
+    const results = [];
+    for (let route = 1; route <= 52; route++) {
+      const baseScore = parseInt(assistScores[route - 1] || '0');
+      const history = attemptHistory[route] || [];
+
+      let lastSeries = [];
+      let temp = [];
+
+      for (const res of history) {
+        if (res === '') {
+          temp = []; // reset on empty (indicates judge reset)
+        } else if (res === 'X' || res === 'T') {
+          temp.push(res);
+          lastSeries = [...temp]; // update last meaningful segment
+        }
+      }
+
+      const attempts = lastSeries.length;
+      const success = lastSeries.includes('T');
       const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
-      return { route, attempts, score, success };
-    });
+
+      if (attempts > 0 || success) {
+        results.push({ route, attempts, score, success });
+      } else {
+        results.push({ route, attempts: null, score: 0, success: false });
+      }
+    }
 
     const totalScore = results
-      .filter(r => r.success)
+      .filter((r) => r.success)
       .sort((a, b) => b.score - a.score)
       .slice(0, 7)
       .reduce((sum, r) => sum + r.score, 0);
