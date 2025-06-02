@@ -81,6 +81,7 @@ export default function NfcPersonalScanner() {
           <h3>שם: {personalData.name}</h3>
           <p>ניקוד כולל: {personalData.totalScore}</p>
           <p>מסלולים שהושלמו: {personalData.results.filter(r => r.success).length}/7</p>
+
           <table style={{ margin: 'auto', borderCollapse: 'collapse', width: '90%' }}>
             <thead>
               <tr>
