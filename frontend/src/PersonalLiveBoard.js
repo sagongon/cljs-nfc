@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import './LiveBoard.css';
 
-const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
+const SERVER_URL = 'https://personalliveresults.onrender.com';
 
 const PersonalLiveBoard = () => {
   const { name } = useParams();
