@@ -233,19 +233,9 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   };
 
   const requestMark = res => {
-    let msg = '';
-    if (lastName === selectedName && lastRoute === routeNumber && selectedName) {
-      msg = '🔔 שימו לב: השם והמסלול לא השתנו מאז הפעם הקודמת. האם להמשיך?';
-    } else if (lastName !== selectedName && lastRoute === routeNumber && selectedName) {
-      msg = '🔔 שימו לב: המסלול לא שונה, האם המתחרה החדש עלה לאותו מסלול?';
-    }
-    if (msg) {
-      setWarningMsg(msg);
-      setPendingResult(res);
-    } else {
-      confirmMark(res);
-    }
-  };
+  confirmMark(res);
+};
+
 
   const confirmMark = async res => {
     const entry = { name: selectedName, route: routeNumber, result: res, stationId, timestamp: new Date().toISOString() };
