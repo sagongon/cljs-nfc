@@ -269,11 +269,15 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
     setLastRoute(routeNumber);
     setWarningMsg('');
     setPendingResult(null);
+    setSelectedName('');
+    setRouteNumber('');
   };
 
   const cancelMark = () => {
     setWarningMsg('');
     setPendingResult(null);
+    setSelectedName('');
+    setRouteNumber('');
   };
 
   const handleCorrection = () => {
