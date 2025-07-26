@@ -236,7 +236,6 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   confirmMark(res);
 };
 
-
   const confirmMark = async res => {
     const entry = { name: selectedName, route: routeNumber, result: res, stationId, timestamp: new Date().toISOString() };
     const pending = JSON.parse(localStorage.getItem('offlineAttempts') || '[]');
@@ -256,11 +255,15 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
       }
     } catch {}
     setLastName(selectedName);
-    setLastRoute(routeNumber);
-    setWarningMsg('');
-    setPendingResult(null);
-    setSelectedName('');
-    setRouteNumber('');
+setLastRoute(routeNumber);
+setWarningMsg('');
+setPendingResult(null);
+fetchHistory(selectedName, routeNumber); // רענון היסטוריה
+setTimeout(() => {
+  setSelectedName('');
+  setRouteNumber('');
+}, 100); // איפוס קל לאחר ההיסטוריה
+
   };
 
   const cancelMark = () => {
