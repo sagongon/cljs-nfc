@@ -1,16 +1,15 @@
-
 import React from 'react';
 
 const links = [
   { label: '🧗 אפליקציית שיפוט', url: 'https://cljs-nfc-ashy.vercel.app/' },
-  { label: '📲 צפייה בתוצאות אישיות (סריקת צמיד)', url: 'https://cljs-nfc-ashy.vercel.app/nfc-personal-scanner' },
   { label: '⏳ תור – תחנה 1', url: 'https://cljs-nfc-ashy.vercel.app/queue-scanner/1' },
   { label: '⏳ תור – תחנה 2', url: 'https://cljs-nfc-ashy.vercel.app/queue-scanner/2' },
   { label: '⏳ תור – תחנה 3', url: 'https://cljs-nfc-ashy.vercel.app/queue-scanner/3' },
   { label: '⏳ תור – תחנה 4', url: 'https://cljs-nfc-ashy.vercel.app/queue-scanner/4' },
   { label: '⏳ תור – תחנה 5', url: 'https://cljs-nfc-ashy.vercel.app/queue-scanner/5' },
-  { label: '⏳ תור – תחנה 6', url: 'https://cljs-nfc-ashy.vercel.app/queue-scanner/6' },
   { label: '📊 דירוג בזמן אמת', url: 'https://cljs-nfc-ashy.vercel.app/live' },
+  { label: '📲 צפייה בתוצאות אישיות (סריקת צמיד)', url: 'https://cljs-nfc-ashy.vercel.app/nfc-personal-scanner' },
+  { label: '🔍 צפייה לפי תעודת זהות', url: 'https://cljs-nfc-ashy.vercel.app/id-search' },
 ];
 
 export default function Menu() {
