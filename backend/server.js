@@ -502,7 +502,7 @@ app.get('/search-id/:id', async (req, res) => {
       range: 'Competitors!B2:H',
     });
     const rows = sheetRes.data.values || [];
-    const match = rows.find(row => row[5] === id); // עמודה G = אינדקס 5
+    const match = rows.find(row => (row[6] || '').trim() === id.trim());
     if (match) {
       const name = match[0];
       const nfcRes = await sheets.spreadsheets.values.get({
