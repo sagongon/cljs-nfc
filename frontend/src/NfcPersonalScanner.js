@@ -73,11 +73,12 @@ function NfcPersonalScanner() {
       <div>
         <label>או הזן תעודת זהות:</label>
         <input
-          type="text"
-          value={idNumber}
-          onChange={(e) => setIdNumber(e.target.value)}
-          placeholder="הקלד ת\"ז"
-        />
+  type="text"
+  value={idNumber}
+  onChange={(e) => setIdNumber(e.target.value)}
+  placeholder='הקלד ת"ז'
+/>
+
         <button onClick={handleSearchById} disabled={loading}>
           חפש לפי תעודת זהות
         </button>
