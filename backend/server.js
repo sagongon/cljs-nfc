@@ -512,6 +512,34 @@ app.get('/nfc-name/:uid', async (req, res) => {
   }
 });
 
+app.get('/search-id/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const sheetRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'Competitors!B2:H',
+    });
+    const rows = sheetRes.data.values || [];
+    const match = rows.find(row => row[5] === id); // עמודה G = אינדקס 5
+    if (match) {
+      const name = match[0];
+      const nfcRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: SHEET_ID,
+        range: 'NFCMap!A2:B',
+      });
+      const nfcRows = nfcRes.data.values || [];
+      const nfcMatch = nfcRows.find(row => row[1] === name);
+      if (nfcMatch) {
+        return res.json({ uid: nfcMatch[0] });
+      }
+    }
+    res.status(404).json({ error: 'לא נמצא' });
+  } catch (e) {
+    console.error('שגיאה בחיפוש ת.ז:', e.message);
+    res.status(500).json({ error: 'שגיאה בשרת' });
+  }
+});
+
 
 app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
@@ -566,3 +594,6 @@ app.post('/assign-nfc', async (req, res) => {
     res.status(500).json({ error: 'שגיאה בשיוך UID' });
   }
 });
+
+
+
