@@ -5,6 +5,7 @@ import QueueScanner from './QueueScanner.js';
 import LiveBoard from './LiveBoard.js';
 import PersonalLiveBoard from './PersonalLiveBoard.js';
 import NfcPersonalScanner from './NfcPersonalScanner.js';
+import IdSearch from './IdSearch';
 import Menu from './Menu.js'; // ✅ הוספת דף תפריט
 
 const App = () => (
