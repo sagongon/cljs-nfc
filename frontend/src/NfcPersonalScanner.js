@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 const SERVER_URL =
   window.location.hostname === 'localhost'
     ? 'http://localhost:4000'
-    : 'https://cljs-nfc.onrender.com'; // ודא שזו הכתובת של השרת הראשי
+    : 'https://cljs-nfc.onrender.com';
 
 function NfcPersonalScanner() {
   const [uid, setUid] = useState('');
@@ -16,12 +16,12 @@ function NfcPersonalScanner() {
   const fetchNameFromUID = async (givenUid) => {
     try {
       const res = await fetch(`${SERVER_URL}/nfc-name/${givenUid}`);
-      const data = await res.json();
-      if (res.ok) {
-        setName(data.name);
-      } else {
-        setError(data.error || 'שגיאה בזיהוי שם לפי UID');
-      }
+    const data = await res.json();
+    if (res.ok) {
+      setName(data.name);
+    } else {
+      setError(data.error || 'שגיאה בזיהוי שם לפי UID');
+    }
     } catch (err) {
       setError('שגיאה בתקשורת עם השרת');
     }
@@ -76,7 +76,7 @@ function NfcPersonalScanner() {
           type="text"
           value={idNumber}
           onChange={(e) => setIdNumber(e.target.value)}
-          placeholder="הקלד ת"ז"
+          placeholder="הקלד ת\"ז"
         />
         <button onClick={handleSearchById} disabled={loading}>
           חפש לפי תעודת זהות
