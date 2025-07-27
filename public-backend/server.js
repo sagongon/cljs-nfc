@@ -432,6 +432,58 @@ app.get('/personal/:name', async (req, res) => {
       }),
     ]);
 
+    const assistScores = assistRes.data.values?.[0] || [];
+    const allAttemptsRows = allAttemptsRes.data.values || [];
+
+    const attemptHistory = {};
+    for (const [rowName, routeStr, result] of allAttemptsRows) {
+      if (rowName !== name) continue;
+      const route = parseInt(routeStr);
+      if (!attemptHistory[route]) attemptHistory[route] = [];
+      attemptHistory[route].push(result);
+    }
+
+    const results = [];
+    for (let route = 1; route <= 52; route++) {
+      const baseScore = parseInt(assistScores[route - 1] || '0');
+      const fullHistory = attemptHistory[route] || [];
+
+      // Find last RESET and take only entries after it
+      let lastResetIndex = -1;
+      for (let i = fullHistory.length - 1; i >= 0; i--) {
+        if (fullHistory[i] === 'RESET') {
+          lastResetIndex = i;
+          break;
+        }
+      }
+      const activeSeries = fullHistory.slice(lastResetIndex + 1);
+      const attemptsOnly = activeSeries.filter(v => v === 'X' || v === 'T');
+
+      const attempts = attemptsOnly.length;
+      const success = attemptsOnly.includes('T');
+      const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
+
+      if (attempts > 0 || success) {
+        results.push({ route, attempts, score, success });
+      } else {
+        results.push({ route, attempts: null, score: 0, success: false });
+      }
+    }
+
+    const totalScore = results
+      .filter((r) => r.success)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 7)
+      .reduce((sum, r) => sum + r.score, 0);
+
+    res.json({ name, results, totalScore });
+  } catch (err) {
+    console.error('❌ שגיאה בנתיב /personal:', err.message);
+    res.status(500).json({ error: 'שגיאה בשליפת מידע אישי' });
+  }
+});
+
+// ✅ ראוט חדש עצמאי לחיפוש לפי ת"ז
 app.get('/search-id/:id', async (req, res) => {
   const id = req.params.id.trim();
   try {
