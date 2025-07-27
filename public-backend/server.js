@@ -432,6 +432,31 @@ app.get('/personal/:name', async (req, res) => {
       }),
     ]);
 
+app.get('/search-id/:id', async (req, res) => {
+  const id = req.params.id.trim();
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'Competitors!B2:G',
+    });
+
+    const rows = response.data.values || [];
+
+    const match = rows.find(row => (row[5] || '').toString().trim() === id);
+
+    if (match) {
+      const name = match[0];
+      res.json({ name });
+    } else {
+      res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
+    }
+  } catch (err) {
+    console.error('❌ שגיאה בנתיב /search-id:', err.message);
+    res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
+  }
+});
+
+
     const assistScores = assistRes.data.values?.[0] || [];
     const allAttemptsRows = allAttemptsRes.data.values || [];
 

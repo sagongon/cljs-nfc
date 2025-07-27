@@ -16,6 +16,7 @@ const App = () => (
       <Route path="/personal/:name" element={<PersonalLiveBoard />} />
       <Route path="/nfc-personal-scanner" element={<NfcPersonalScanner />} />
       <Route path="/menu" element={<Menu />} /> {/* ✅ נתיב חדש לתפריט */}
+      <Route path="/id-search" element={<IdSearch />} />
     </Routes>
   </Router>
 );
