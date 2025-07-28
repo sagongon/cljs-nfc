@@ -1,130 +1,89 @@
-/* IdSearch.js - צפייה בתוצאות לפי ת.ז */
 import React, { useState } from 'react';
+import './NfcPersonalScanner.css';
 
-const SERVER_URL = 'https://personalliveresults.onrender.com';
+const SERVER_URL =
+  window.location.hostname === 'localhost'
+    ? 'http://localhost:9000'
+    : 'https://personalliveresults.onrender.com';
 
 export default function IdSearch() {
   const [idNumber, setIdNumber] = useState('');
-  const [message, setMessage] = useState('הזן תעודת זהות ולחץ "חפש"');
+  const [message, setMessage] = useState('');
   const [personalData, setPersonalData] = useState(null);
 
   const handleSearch = async () => {
-    if (!idNumber.trim()) {
-      setMessage('❌ נא להזין תעודת זהות');
-      return;
-    }
+    if (!idNumber) return;
 
-    setMessage('🔍 מאתר את הספורטאי לפי ת.ז...');
+    setMessage('🔍 מאתר את הספורטאי...');
     setPersonalData(null);
 
     try {
-      const res = await fetch(`${SERVER_URL}/search-id`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ idNumber })
-      });
-
+      const res = await fetch(`${SERVER_URL}/search-id/${idNumber}`);
       const data = await res.json();
 
-      if (!res.ok || data.error || !data.name) {
-        setMessage('❌ לא נמצאו תוצאות עבור תעודת הזהות');
+      if (!res.ok || data.error) {
+        setMessage('❌ לא נמצא מתחרה עם תעודת זהות זו');
         return;
       }
 
+      setMessage(`📋 מוצגות התוצאות של ${data.name}`);
+
       try {
-  setMessage(`📋 מוצגות התוצאות של ${data.name}`);
+        const personalRes = await fetch(`${SERVER_URL}/personal/${encodeURIComponent(data.name)}`);
+        const personal = await personalRes.json();
 
-  const personalRes = await fetch(`${SERVER_URL}/personal/${encodeURIComponent(data.name)}`);
-  const personal = await personalRes.json();
+        if (!personalRes.ok || personal.error) {
+          setMessage('❌ שגיאה בשליפת תוצאות');
+          return;
+        }
 
-  if (!personalRes.ok || personal.error) {
-    setMessage('❌ שגיאה בשליפת תוצאות');
-    return;
-  }
-
-  setPersonalData(personal);
-} catch (err) {
-  setMessage('❌ שגיאה בשליפת תוצאות מהשרת');
-}`);`
-      setPersonalData(data);
+        setPersonalData(personal);
+      } catch (err) {
+        setMessage('❌ שגיאה בשליפת תוצאות מהשרת');
+      }
     } catch (err) {
       setMessage('❌ שגיאה בשליפת נתונים מהשרת');
     }
   };
 
-  const topRoutes = personalData?.results
-    ?.filter(r => r.success)
-    ?.sort((a, b) => (b.score === a.score ? b.route - a.route : b.score - a.score))
-    ?.slice(0, 7)
-    ?.map(r => r.route) || [];
-
   return (
-    <div style={{ padding: 20, direction: 'rtl', textAlign: 'center' }}>
-      <h2>תוצאות ספורטאי לפי UID או תעודת זהות</h2>
+    <div className="nfc-personal-container">
+      <h2>בדיקת תוצאות לפי תעודת זהות</h2>
       <input
         type="text"
         placeholder="הכנס ת.ז"
         value={idNumber}
         onChange={(e) => setIdNumber(e.target.value)}
-        style={{ padding: 10, width: '60%', marginBottom: 10 }}
+        className="nfc-input"
       />
-      <br />
-      <button onClick={handleSearch} style={{ padding: '10px 20px', fontSize: 16 }}>חפש</button>
-
-      <p style={{ fontSize: 18, color: personalData ? 'green' : 'red' }}>{message}</p>
+      <button onClick={handleSearch} className="nfc-button">בדוק</button>
+      <p>{message}</p>
 
       {personalData && (
-        <div>
-          <h3>שם: {personalData.name}</h3>
-          <p>ניקוד כולל: {personalData.totalScore}</p>
-          <p>מסלולים שהושלמו: {personalData.results.filter(r => r.success).length}/7</p>
-
-          <table style={{ margin: 'auto', borderCollapse: 'collapse', width: '90%' }}>
+        <div className="nfc-results">
+          <h3>תוצאות עבור: {personalData.name}</h3>
+          <table>
             <thead>
               <tr>
                 <th>מסלול</th>
                 <th>ניסיונות</th>
+                <th>הצלחה</th>
                 <th>ניקוד</th>
-                <th>✔️</th>
-                <th>🏅</th>
               </tr>
             </thead>
             <tbody>
-              {Array.from({ length: 30 }, (_, i) => {
-                const routeNum = i + 1;
-                const r = personalData.results.find(r => r.route === routeNum) || {};
-                const { success, score = 0, attempts = null } = r;
-
-                let bgColor = '#f0f0f0';
-                if (success) bgColor = '#e0ffe0';
-                else if (attempts === 5) bgColor = '#fff5cc';
-                else if (attempts != null) bgColor = '#fff0f0';
-
-                let attemptDisplay = '-';
-                if (attempts != null) {
-                  if (!success && attempts === 4)
-                    attemptDisplay = <span style={{ color: '#ff9900', fontWeight: 'bold' }}>{attempts}</span>;
-                  else if (!success && attempts === 5)
-                    attemptDisplay = <span style={{ color: '#cc0000', fontWeight: 'bold' }}>{attempts}</span>;
-                  else attemptDisplay = attempts;
-                }
-
-                const isTopRoute = topRoutes.includes(routeNum);
-
-                return (
-                  <tr key={routeNum} style={{ backgroundColor: bgColor }}>
-                    <td>{routeNum}</td>
-                    <td>{attemptDisplay}</td>
-                    <td>{score}</td>
-                    <td>{success ? '✅' : attempts != null ? '❌' : ''}</td>
-                    <td>{isTopRoute ? '🏅' : ''}</td>
-                  </tr>
-                );
-              })}
+              {personalData.routes.map((route, index) => (
+                <tr key={index}>
+                  <td>{route.number}</td>
+                  <td>{route.attempts}</td>
+                  <td>{route.success ? '✅' : '❌'}</td>
+                  <td>{route.score}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
+          <p>סה"כ ניקוד: {personalData.totalScore}</p>
+          <p>מסלולים מוצלחים: {personalData.successCount} / 7</p>
         </div>
       )}
     </div>
