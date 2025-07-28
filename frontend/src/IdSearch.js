@@ -36,6 +36,7 @@ export default function IdSearch() {
           return;
         }
 
+        console.log('🔎 personal:', personal); // ניתוח הנתונים שהתקבלו
         setPersonalData(personal);
       } catch (err) {
         setMessage('❌ שגיאה בשליפת תוצאות מהשרת');
@@ -58,7 +59,7 @@ export default function IdSearch() {
       <button onClick={handleSearch} className="nfc-button">בדוק</button>
       <p>{message}</p>
 
-      {personalData && (
+      {personalData && personalData.routes && (
         <div className="nfc-results">
           <h3>תוצאות עבור: {personalData.name}</h3>
           <table>
