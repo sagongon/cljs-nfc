@@ -21,8 +21,13 @@ const app = express();
 const PORT = process.env.PORT;
 
 // 🟡 ברירת מחדל ו־ID פעיל של הגיליון
-let DEFAULT_SPREADSHEET_ID = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
-let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
+let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID || '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
+let ACTIVE_SPREADSHEET_ID = process.env.ACTIVE_SPREADSHEET_ID || DEFAULT_SPREADSHEET_ID;
+
+if (!ACTIVE_SPREADSHEET_ID) {
+  console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
+  process.exit(1);
+}
 
 app.use(cors());
 app.use(express.json());
@@ -570,6 +575,25 @@ app.post('/assign-nfc', async (req, res) => {
     res.status(500).json({ error: 'שגיאה בשיוך UID' });
   }
 });
+
+// ✅ מסלול לעדכון מזהה הגיליון הפעיל דרך בקשת POST מה־frontend
+app.post('/set-active-sheet', (req, res) => {
+  const { adminCode, newSheetId } = req.body;
+
+ if (adminCode !== ADMIN_CODE) {
+  return res.status(403).json({ error: 'קוד מנהל שגוי' });
+}
+
+
+  if (!newSheetId || typeof newSheetId !== 'string') {
+    return res.status(400).json({ error: 'Spreadsheet ID לא תקין' });
+  }
+
+  ACTIVE_SPREADSHEET_ID = newSheetId;
+  console.log(`✅ עודכן ACTIVE_SPREADSHEET_ID: ${ACTIVE_SPREADSHEET_ID}`);
+  res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
+});
+
 
 // ✅ הפעלת השרת
 app.listen(PORT, async () => {
