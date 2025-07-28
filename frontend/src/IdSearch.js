@@ -18,7 +18,13 @@ export default function IdSearch() {
     setPersonalData(null);
 
     try {
-      const res = await fetch(`${SERVER_URL}/search-id/${encodeURIComponent(idNumber)}`);
+      const res = await fetch(`${SERVER_URL}/search-id`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ idNumber })
+      });
 
       const data = await res.json();
 
@@ -27,17 +33,26 @@ export default function IdSearch() {
         return;
       }
 
-     setMessage(`📋 מוצגות התוצאות של ${data.name}`);
+      try {
+  setMessage(`📋 מוצגות התוצאות של ${data.name}`);
 
-const personalRes = await fetch(`${SERVER_URL}/personal/${encodeURIComponent(data.name)}`);
-const personal = await personalRes.json();
+  const personalRes = await fetch(`${SERVER_URL}/personal/${encodeURIComponent(data.name)}`);
+  const personal = await personalRes.json();
 
-if (!personalRes.ok || personal.error) {
-  setMessage('❌ שגיאה בשליפת תוצאות');
-  return;
-}
+  if (!personalRes.ok || personal.error) {
+    setMessage('❌ שגיאה בשליפת תוצאות');
+    return;
+  }
 
-setPersonalData(personal);
+  setPersonalData(personal);
+} catch (err) {
+  setMessage('❌ שגיאה בשליפת תוצאות מהשרת');
+}`);
+      setPersonalData(data);
+    } catch (err) {
+      setMessage('❌ שגיאה בשליפת נתונים מהשרת');
+    }
+  };
 
   const topRoutes = personalData?.results
     ?.filter(r => r.success)
