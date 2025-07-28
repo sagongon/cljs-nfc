@@ -53,8 +53,6 @@ app.post('/search-id', async (req, res) => {
 
 
 
-
-
 const SHEET_ID = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
 
 let credentials;
@@ -463,10 +461,14 @@ app.get('/personal/:name', async (req, res) => {
       }),
     ]);
 
-    
-    } else {
-      res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
-    }
+    const allAttempts = allAttemptsRes.data.values || [];
+const climberAttempts = allAttempts.filter(row => row[2] === idNumber);
+
+if (climberAttempts.length === 0) {
+  return res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
+}
+
+
   } catch (err) {
     console.error('❌ שגיאה בנתיב /search-id:', err.message);
     res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
