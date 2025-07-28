@@ -558,6 +558,35 @@ app.post('/update-sheet-id', (req, res) => {
   res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
 });
 
+// ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
+app.post('/set-active-sheet', async (req, res) => {
+  const { adminCode, newSheetId } = req.body;
+
+  if (adminCode !== ADMIN_CODE) {
+    return res.status(403).json({ error: 'קוד מנהל שגוי' });
+  }
+
+  if (!newSheetId || typeof newSheetId !== 'string') {
+    return res.status(400).json({ error: 'ID גיליון לא תקין' });
+  }
+
+  // ✍️ שמירה בקובץ מקומי
+  const envPath = path.join(__dirname, '.env');
+  let envContent = fs.readFileSync(envPath, 'utf8');
+
+  // אם כבר יש ACTIVE_SPREADSHEET_ID – נחליף
+  if (envContent.includes('ACTIVE_SPREADSHEET_ID=')) {
+    envContent = envContent.replace(/ACTIVE_SPREADSHEET_ID=.*/g, `ACTIVE_SPREADSHEET_ID=${newSheetId}`);
+  } else {
+    envContent += `\nACTIVE_SPREADSHEET_ID=${newSheetId}`;
+  }
+
+  fs.writeFileSync(envPath, envContent);
+  console.log(`✅ עודכן ACTIVE_SPREADSHEET_ID ל־${newSheetId}`);
+
+  res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
+});
+
 
 app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
