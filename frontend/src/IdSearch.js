@@ -47,7 +47,7 @@ export default function IdSearch() {
   setPersonalData(personal);
 } catch (err) {
   setMessage('❌ שגיאה בשליפת תוצאות מהשרת');
-}`);
+}`);`
       setPersonalData(data);
     } catch (err) {
       setMessage('❌ שגיאה בשליפת נתונים מהשרת');
