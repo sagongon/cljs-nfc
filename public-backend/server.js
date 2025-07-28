@@ -443,7 +443,7 @@ if (match) {
   
       res.json({ name });
 
-// ✅ ראוט חדש עצמאי לחיפוש לפי ת"ז
+// ✅ חיפוש לפי תעודת זהות
 app.get('/search-id/:id', async (req, res) => {
   const id = req.params.id.trim();
   try {
@@ -457,64 +457,7 @@ app.get('/search-id/:id', async (req, res) => {
 
     if (match) {
       const name = match[0];
-
-      // המשך שליפת נתוני הניסיונות והניקוד האישי
-      const [assistRes, allAttemptsRes] = await Promise.all([
-        sheets.spreadsheets.values.get({
-          spreadsheetId: SHEET_ID,
-          range: 'Assist Tables!B2:AZ2',
-        }),
-        sheets.spreadsheets.values.get({
-          spreadsheetId: SHEET_ID,
-          range: 'AllAttempts!B2:D',
-        }),
-      ]);
-
-      const assistScores = assistRes.data.values?.[0] || [];
-      const allAttemptsRows = allAttemptsRes.data.values || [];
-
-      const attemptHistory = {};
-      for (const [rowName, routeStr, result] of allAttemptsRows) {
-        if (rowName !== name) continue;
-        const route = parseInt(routeStr);
-        if (!attemptHistory[route]) attemptHistory[route] = [];
-        attemptHistory[route].push(result);
-      }
-
-      const results = [];
-      for (let route = 1; route <= 52; route++) {
-        const baseScore = parseInt(assistScores[route - 1] || '0');
-        const fullHistory = attemptHistory[route] || [];
-
-        // Find last RESET and take only entries after it
-        let lastResetIndex = -1;
-        for (let i = fullHistory.length - 1; i >= 0; i--) {
-          if (fullHistory[i] === 'RESET') {
-            lastResetIndex = i;
-            break;
-          }
-        }
-        const activeSeries = fullHistory.slice(lastResetIndex + 1);
-        const attemptsOnly = activeSeries.filter(v => v === 'X' || v === 'T');
-
-        const attempts = attemptsOnly.length;
-        const success = attemptsOnly.includes('T');
-        const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
-
-        if (attempts > 0 || success) {
-          results.push({ route, attempts, score, success });
-        } else {
-          results.push({ route, attempts: null, score: 0, success: false });
-        }
-      }
-
-      const totalScore = results
-        .filter((r) => r.success)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 7)
-        .reduce((sum, r) => sum + r.score, 0);
-
-      res.json({ name, results, totalScore });
+      res.json({ name });
     } else {
       res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
     }
@@ -524,7 +467,72 @@ app.get('/search-id/:id', async (req, res) => {
   }
 });
 
-// ✅ UID → name
+// ✅ שליפת תוצאות אישיות לפי שם מתחרה
+app.get('/personal/:name', async (req, res) => {
+  const name = req.params.name.trim();
+  try {
+    const assistRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'Assist Tables!B2:AZ2',
+    });
+
+    const allAttemptsRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'AllAttempts!A2:C',
+    });
+
+    const assistScores = assistRes.data.values?.[0] || [];
+    const allAttemptsRows = allAttemptsRes.data.values || [];
+
+    const attemptHistory = {};
+    for (const [rowName, routeStr, result] of allAttemptsRows) {
+      if (rowName !== name) continue;
+      const route = parseInt(routeStr);
+      if (!attemptHistory[route]) attemptHistory[route] = [];
+      attemptHistory[route].push(result);
+    }
+
+    const results = [];
+    for (let route = 1; route <= 52; route++) {
+      const baseScore = parseInt(assistScores[route - 1] || '0');
+      const fullHistory = attemptHistory[route] || [];
+
+      let lastResetIndex = -1;
+      for (let i = fullHistory.length - 1; i >= 0; i--) {
+        if (fullHistory[i] === 'RESET') {
+          lastResetIndex = i;
+          break;
+        }
+      }
+
+      const activeSeries = fullHistory.slice(lastResetIndex + 1);
+      const attemptsOnly = activeSeries.filter(v => v === 'X' || v === 'T');
+
+      const attempts = attemptsOnly.length;
+      const success = attemptsOnly.includes('T');
+      const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
+
+      if (attempts > 0 || success) {
+        results.push({ route, attempts, score, success });
+      } else {
+        results.push({ route, attempts: null, score: 0, success: false });
+      }
+    }
+
+    const totalScore = results
+      .filter((r) => r.success)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 7)
+      .reduce((sum, r) => sum + r.score, 0);
+
+    res.json({ name, results, totalScore });
+  } catch (err) {
+    console.error('❌ שגיאה בנתיב /personal:', err.message);
+    res.status(500).json({ error: 'שגיאה בשליפת מידע אישי' });
+  }
+});
+
+// ✅ קריאת UID אחרון ממחשב
 app.get('/get-latest-uid', (req, res) => {
   try {
     const uid = fs.readFileSync('latest_uid.txt', 'utf-8').trim();
@@ -534,6 +542,7 @@ app.get('/get-latest-uid', (req, res) => {
   }
 });
 
+// ✅ מציאת שם לפי UID
 app.get('/nfc-name/:uid', async (req, res) => {
   const uid = req.params.uid.trim();
   try {
@@ -541,6 +550,7 @@ app.get('/nfc-name/:uid', async (req, res) => {
       spreadsheetId: SHEET_ID,
       range: 'NFCMap!A2:B',
     });
+
     const rows = response.data.values || [];
     const match = rows.find(row =>
       (row[0] || '').replace(/[:\s]/g, '').toLowerCase() === uid.replace(/[:\s]/g, '').toLowerCase()
@@ -557,20 +567,7 @@ app.get('/nfc-name/:uid', async (req, res) => {
   }
 });
 
-// ✅ דף בדיקה
-app.get('/', (req, res) => {
-  res.send('🟢 Backend server is running');
-});
-
-// ✅ הפעלת השרת
-app.listen(PORT, async () => {
-  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
-  await restoreAttemptsMemory();
-});
-
-
-// ✅ server.js – כולל מניעת שיוך כפול של UID או שם
-
+// ✅ שיוך UID למתחרה
 app.post('/assign-nfc', async (req, res) => {
   await ensureNFCMapSheet();
   const { name, uid } = req.body;
@@ -584,7 +581,6 @@ app.post('/assign-nfc', async (req, res) => {
     });
 
     const rows = result.data.values || [];
-
     const uidRow = rows.find(row => row[0] === uid);
     const nameRow = rows.find(row => row[1] === name);
 
@@ -616,4 +612,14 @@ app.post('/assign-nfc', async (req, res) => {
     res.status(500).json({ error: 'שגיאה בשיוך UID' });
   }
 });
-"//                   deploy" 
+
+// ✅ דף בדיקה שהשרת פעיל
+app.get('/', (req, res) => {
+  res.send('🟢 Backend server is running');
+});
+
+// ✅ הפעלת השרת
+app.listen(PORT, async () => {
+  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
+  await restoreAttemptsMemory();
+});
