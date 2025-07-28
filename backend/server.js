@@ -19,6 +19,14 @@ process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
+let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
+
+if (!ACTIVE_SPREADSHEET_ID) {
+  console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
+  process.exit(1);
+}
+
 app.use(cors());
 app.use(express.json());
 
@@ -48,17 +56,20 @@ const attemptsMemory = {};
 const queues = {}; // תורים לפי תחנה
 
 async function ensureNFCMapSheet() {
-  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
+ });
   const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
   if (!sheetNames.includes('NFCMap')) {
     await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       requestBody: {
         requests: [{ addSheet: { properties: { title: 'NFCMap' } } }],
       },
     });
     await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'NFCMap!A1:B1',
       valueInputOption: 'USER_ENTERED',
       resource: { values: [['UID', 'Name']] },
@@ -78,17 +89,20 @@ function getExcelColumnName(n) {
 }
 
 async function ensureAllAttemptsSheet() {
-  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
+ });
   const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
   if (!sheetNames.includes('AllAttempts')) {
     await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       requestBody: {
         requests: [{ addSheet: { properties: { title: 'AllAttempts' } } }],
       },
     });
     await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'AllAttempts!A1:F1',
       valueInputOption: 'USER_ENTERED',
       resource: { values: [['שם מתחרה', 'מסלול', 'תוצאה', 'מספר ניסיון', 'תאריך', 'מספר תחנה']] },
@@ -102,7 +116,8 @@ async function restoreAttemptsMemory() {
   await ensureAllAttemptsSheet();
   try {
     const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'AllAttempts!A2:E',
     });
     const rows = res.data.values || [];
@@ -132,7 +147,8 @@ async function logToAttemptsSheet(name, route, result) {
   if (result !== 'T') return;
   try {
     const getNames = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'Atempts!B2:B',
     });
     const rowIndex = getNames.data.values.findIndex((row) => row[0] === name);
@@ -141,7 +157,8 @@ async function logToAttemptsSheet(name, route, result) {
     const columnLetter = getExcelColumnName(parseInt(route, 10) + 2);
     const attemptCount = attemptsMemory[name]?.[parseInt(route, 10)]?.length || '';
     await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: `Atempts!${columnLetter}${excelRow}`,
       valueInputOption: 'USER_ENTERED',
       resource: { values: [[attemptCount]] },
@@ -173,7 +190,8 @@ app.post('/sync-offline', async (req, res) => {
     try {
       await ensureAllAttemptsSheet();
       await sheets.spreadsheets.values.append({
-        spreadsheetId: SHEET_ID,
+        spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
         range: 'AllAttempts!A:E',
         valueInputOption: 'USER_ENTERED',
         resource: {
@@ -195,7 +213,8 @@ app.post('/sync-offline', async (req, res) => {
 app.get('/competitors', async (req, res) => {
   try {
     const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'Atempts!B2:B',
     });
     const names = result.data.values?.map((row) => row[0]) || [];
@@ -225,7 +244,8 @@ app.post('/correct', async (req, res) => {
 
   try {
     await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'AllAttempts!A:E',
       valueInputOption: 'USER_ENTERED',
       resource: {
@@ -239,7 +259,8 @@ app.post('/correct', async (req, res) => {
 
   try {
     const getNames = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'Atempts!B2:B',
     });
     const rowIndex = getNames.data.values.findIndex((row) => row[0] === name);
@@ -247,7 +268,8 @@ app.post('/correct', async (req, res) => {
       const excelRow = rowIndex + 2;
       const columnLetter = getExcelColumnName(routeNum + 2);
       await sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID,
+        spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
         range: `Atempts!${columnLetter}${excelRow}`,
         valueInputOption: 'USER_ENTERED',
         resource: { values: [['']] },
@@ -281,7 +303,8 @@ app.post('/mark', async (req, res) => {
   try {
     await ensureAllAttemptsSheet();
     await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'AllAttempts!A:E',
       valueInputOption: 'USER_ENTERED',
       resource: {
@@ -319,7 +342,8 @@ app.post('/queue/add', async (req, res) => {
 
   try {
     const resGet = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'NFCMap!A2:B',
     });
     const rows = resGet.data.values || [];
@@ -376,9 +400,12 @@ app.post('/queue/dequeue', (req, res) => {
 app.get('/live', async (req, res) => {
   try {
     const [competitorsRes, attemptsRes, assistRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Competitors!B2:H' }),
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Atempts!B2:BA' }),
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Assist Tables!B2:BA2' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
+, range: 'Competitors!B2:H' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
+, range: 'Atempts!B2:BA' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
+, range: 'Assist Tables!B2:BA2' }),
     ]);
 
     const competitorsRows = competitorsRes.data.values || [];
@@ -421,8 +448,10 @@ app.get('/personal/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
     const [attemptsRes, assistRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Atempts!B2:BA' }),
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Assist Tables!B2:BA2' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
+, range: 'Atempts!B2:BA' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
+, range: 'Assist Tables!B2:BA2' }),
     ]);
 
     const attemptsRows = attemptsRes.data.values || [];
@@ -475,7 +504,8 @@ app.get('/nfc-name/:uid', async (req, res) => {
   const uid = req.params.uid.trim();
   try {
     const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'NFCMap!A2:B',
     });
     const rows = response.data.values || [];
@@ -498,7 +528,8 @@ app.get('/nfc-name/:uid', async (req, res) => {
   try {
     const uidParam = (req.params.uid || '').trim().toLowerCase();
     const doc = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'NFCMap!A2:B',
     });
 
@@ -517,7 +548,8 @@ app.get('/search-id/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const sheetRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'Competitors!B2:H',
     });
     const rows = sheetRes.data.values || [];
@@ -525,7 +557,8 @@ app.get('/search-id/:id', async (req, res) => {
     if (match) {
       const name = match[0];
       const nfcRes = await sheets.spreadsheets.values.get({
-        spreadsheetId: SHEET_ID,
+        spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
         range: 'NFCMap!A2:B',
       });
       const nfcRows = nfcRes.data.values || [];
@@ -604,7 +637,8 @@ app.post('/assign-nfc', async (req, res) => {
   try {
     const range = 'NFCMap!A2:B';
     const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range,
     });
 
@@ -626,7 +660,8 @@ app.post('/assign-nfc', async (req, res) => {
     }
 
     await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'NFCMap!A:B',
       valueInputOption: 'USER_ENTERED',
       resource: {

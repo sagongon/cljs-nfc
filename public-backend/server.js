@@ -21,8 +21,9 @@ const app = express();
 const PORT = process.env.PORT;
 
 // 🟡 ברירת מחדל ו־ID פעיל של הגיליון
-let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID || '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
-let ACTIVE_SPREADSHEET_ID = process.env.ACTIVE_SPREADSHEET_ID || DEFAULT_SPREADSHEET_ID;
+let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
+let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
+
 
 if (!ACTIVE_SPREADSHEET_ID) {
   console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
