@@ -24,7 +24,6 @@ const NfcPersonalScanner = () => {
       try {
         setLoading(true);
 
-        // אם יש תעודת זהות – נחפש לפי ת"ז
         if (id) {
           const res = await axios.get(`${SERVER_URL}/search-id/${id}`);
           if (res.data && res.data.name) {
@@ -32,24 +31,21 @@ const NfcPersonalScanner = () => {
           } else {
             setError('לא נמצא מתחרה עם תעודת זהות זו');
             setLoading(false);
+            return;
           }
-        }
-
-        // אם אין שם עדיין – ננסה לפי UID מה־URL
-        else if (uid) {
+        } else if (uid) {
           const res = await axios.get(`${SERVER_URL}/search-uid/${uid}`);
           if (res.data && res.data.name) {
             setName(res.data.name);
           } else {
             setError('לא נמצא מתחרה עבור UID זה');
             setLoading(false);
+            return;
           }
-        }
-
-        // אם אין ת"ז ואין UID
-        else {
+        } else {
           setError('לא התקבל UID או תעודת זהות');
           setLoading(false);
+          return;
         }
       } catch (err) {
         setError('שגיאה בקבלת נתוני המתחרה');
@@ -104,3 +100,17 @@ const NfcPersonalScanner = () => {
         </thead>
         <tbody>
           {data.map((route, index) => (
+            <tr key={index}>
+              <td>{route.route}</td>
+              <td>{route.attempts}</td>
+              <td>{route.success ? route.score : '-'}</td>
+              <td>{route.success ? '✅' : '❌'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export default NfcPersonalScanner;
