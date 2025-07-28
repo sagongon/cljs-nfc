@@ -1,103 +1,123 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import './App.css';
 
 const SERVER_URL =
-  window.location.hostname === 'localhost'
-    ? 'http://localhost:4000'
-    : 'https://cljs-nfc.onrender.com';
+  process.env.REACT_APP_API_BASE_URL || 'https://personalliveresults.onrender.com';
 
-function NfcPersonalScanner() {
-  const [uid, setUid] = useState('');
-  const [idNumber, setIdNumber] = useState('');
-  const [name, setName] = useState('');
-  const [attempts, setAttempts] = useState([]);
+function NfcPersonalScanner({ params }) {
+  const [athleteName, setAthleteName] = useState('');
+  const [category, setCategory] = useState('');
+  const [club, setClub] = useState('');
+  const [score, setScore] = useState(null);
+  const [routeAttempts, setRouteAttempts] = useState({});
+  const [searchId, setSearchId] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isIdMode, setIsIdMode] = useState(false);
 
-  const fetchNameFromUID = async (givenUid) => {
-    try {
-      const res = await fetch(`${SERVER_URL}/nfc-name/${givenUid}`);
-    const data = await res.json();
-    if (res.ok) {
-      setName(data.name);
-    } else {
-      setError(data.error || 'שגיאה בזיהוי שם לפי UID');
-    }
-    } catch (err) {
-      setError('שגיאה בתקשורת עם השרת');
-    }
-  };
-
-  const fetchAttempts = async (givenName) => {
-    try {
-      const res = await fetch(`${SERVER_URL}/personal/${encodeURIComponent(givenName)}`);
-      const data = await res.json();
-      if (res.ok) {
-        setAttempts(data.attempts || []);
-      } else {
-        setError(data.error || 'שגיאה בשליפת נתונים');
-      }
-    } catch (err) {
-      setError('שגיאה בתקשורת עם השרת');
-    }
-  };
-
-  const handleSearchById = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      const res = await fetch(`${SERVER_URL}/search-id/${idNumber.trim()}`);
-      const data = await res.json();
-      if (res.ok && data.uid) {
-        setUid(data.uid);
-        fetchNameFromUID(data.uid);
-      } else {
-        setError(data.error || 'לא נמצא UID תואם');
-      }
-    } catch (err) {
-      setError('שגיאה בתקשורת עם השרת');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const uidFromURL = window.location.pathname.split('/').pop();
 
   useEffect(() => {
-    if (name) {
-      fetchAttempts(name);
+    if (uidFromURL.length > 3 && !isIdMode) {
+      fetchDataByUID(uidFromURL);
     }
-  }, [name]);
+  }, [uidFromURL]);
+
+  const fetchDataByUID = async (uid) => {
+    try {
+      const res = await axios.get(`${SERVER_URL}/search-uid/${uid}`);
+      if (res.data && res.data.name) {
+        fetchPersonalResults(res.data.name);
+      } else {
+        setError('לא נמצאו נתונים עבור הצמיד הזה.');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('שגיאה בחיפוש לפי UID.');
+    }
+  };
+
+  const fetchDataByID = async () => {
+    if (!searchId.trim()) return;
+
+    try {
+      const res = await axios.get(`${SERVER_URL}/search-id/${searchId.trim()}`);
+      if (res.data && res.data.name) {
+        fetchPersonalResults(res.data.name);
+      } else {
+        setError('לא נמצאו נתונים עבור תעודת הזהות.');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('שגיאה בחיפוש לפי תעודת זהות.');
+    }
+  };
+
+  const fetchPersonalResults = async (name) => {
+    try {
+      const res = await axios.get(`${SERVER_URL}/personal-results/${encodeURIComponent(name)}`);
+      const { category, club, score, routeAttempts } = res.data;
+
+      setAthleteName(name);
+      setCategory(category);
+      setClub(club);
+      setScore(score);
+      setRouteAttempts(routeAttempts);
+      setError('');
+    } catch (err) {
+      console.error(err);
+      setError('שגיאה בטעינת תוצאות אישיות.');
+    }
+  };
 
   return (
     <div className="App">
       <h2>🔍 תצוגת תוצאות אישיות</h2>
 
-      <div>
-        <label>או הזן תעודת זהות:</label>
-        <input
-  type="text"
-  value={idNumber}
-  onChange={(e) => setIdNumber(e.target.value)}
-  placeholder='הקלד ת"ז'
-/>
-
-        <button onClick={handleSearchById} disabled={loading}>
-          חפש לפי תעודת זהות
-        </button>
-      </div>
+      {!athleteName && (
+        <>
+          <p>או הזן תעודת זהות:</p>
+          <input
+            type="text"
+            value={searchId}
+            onChange={(e) => setSearchId(e.target.value)}
+            placeholder='הקלד ת"ז'
+          />
+          <br />
+          <button onClick={() => { setIsIdMode(true); fetchDataByID(); }}>
+            חפש לפי תעודת זהות
+          </button>
+        </>
+      )}
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      {name && (
-        <div>
-          <h3>שלום {name} 👋</h3>
-          <h4>תוצאות:</h4>
-          <ul>
-            {attempts.map((a, idx) => (
-              <li key={idx}>
-                מסלול {a.route}: {a.success ? `✅ ${a.tries} ניסיונות` : `❌ ${a.tries} ניסיונות`}
-              </li>
-            ))}
-          </ul>
-        </div>
+      {athleteName && (
+        <>
+          <h3>שם: {athleteName}</h3>
+          <p>קטגוריה: {category}</p>
+          <p>מועדון: {club}</p>
+          <p>ניקוד כולל: {score} ({Object.values(routeAttempts).filter(v => v.success).length}/7)</p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>מסלול</th>
+                <th>ניסיונות</th>
+                <th>סטטוס</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(routeAttempts).map(([route, data]) => (
+                <tr key={route}>
+                  <td>{route}</td>
+                  <td>{data.attempts}</td>
+                  <td>{data.success ? '✅' : '❌'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
     </div>
   );
