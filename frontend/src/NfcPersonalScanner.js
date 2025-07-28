@@ -1,125 +1,113 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import ClimberTable from "./ClimberTable";
+import ClimberScore from "./ClimberScore";
 
-const SERVER_URL =
-  window.location.hostname === "localhost"
-    ? "http://localhost:4000"
-    : "https://personalliveresults.onrender.com";
+const NfcPersonalScanner = () => {
+  const [searchValue, setSearchValue] = useState("");
+  const [climberData, setClimberData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [mode, setMode] = useState("waiting");
 
-function NfcPersonalScanner() {
-  const [data, setData] = useState(null);
-  const [statusMessage, setStatusMessage] = useState("נא לסרוק צמיד או להזין תעודת זהות");
-  const [idInput, setIdInput] = useState("");
+  const SERVER_URL =
+    window.location.hostname === "localhost"
+      ? "http://localhost:4000"
+      : "https://personalliveresults.onrender.com";
 
-  const handleUID = async (uid) => {
+  const fetchData = async (identifier) => {
     try {
-      setStatusMessage("🔄 טוען נתונים...");
-      const response = await axios.get(`${SERVER_URL}/search-uid/${uid}`);
-      if (response.data && response.data.name) {
-        setData(response.data);
-        setStatusMessage(null);
+      setLoading(true);
+      setError("");
+      setClimberData(null);
+
+      const isId = /^\d{5,10}$/.test(identifier); // מזהה אם זו ת"ז או UID
+      const endpoint = isId
+        ? `${SERVER_URL}/search-id/${identifier}`
+        : `${SERVER_URL}/personal/${identifier}`;
+
+      const response = await axios.get(endpoint);
+
+      if (response.data && response.data.success) {
+        setClimberData(response.data);
+        setMode("result");
       } else {
-        setStatusMessage("❌ לא נמצאו נתונים לצמיד זה");
+        setError("לא נמצאו נתונים עבור הצמיד הזה או תעודת הזהות.");
+        setMode("error");
       }
     } catch (err) {
-      console.error(err);
-      setStatusMessage("❌ שגיאה בעת טעינת נתונים");
-    }
-  };
-
-  const handleIdSearch = async () => {
-    if (!idInput.trim()) {
-      setStatusMessage("❗ יש להזין תעודת זהות");
-      return;
-    }
-    try {
-      setStatusMessage("🔄 טוען נתונים...");
-      const response = await axios.get(`${SERVER_URL}/search-id/${idInput.trim()}`);
-      if (response.data && response.data.name) {
-        setData(response.data);
-        setStatusMessage(null);
-      } else {
-        setStatusMessage("❌ תעודת זהות לא נמצאה");
-      }
-    } catch (err) {
-      console.error(err);
-      setStatusMessage("❌ שגיאה בעת טעינת נתונים");
+      setError("שגיאה בעת טעינת נתונים.");
+      setMode("error");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    // נסה לסרוק UID (למשתמשי טלפון עם NDEFReader)
-    if ("NDEFReader" in window) {
-      const reader = new window.NDEFReader();
-      reader
-        .scan()
-        .then(() => {
-          reader.onreading = (event) => {
+    const handleNfc = async () => {
+      try {
+        if ("NDEFReader" in window) {
+          const ndef = new window.NDEFReader();
+          await ndef.scan();
+          ndef.onreading = (event) => {
             const uid = event.serialNumber;
             if (uid) {
-              handleUID(uid);
+              fetchData(uid);
+            } else {
+              setError("לא התקבל UID.");
+              setMode("error");
             }
           };
-        })
-        .catch((err) => {
-          console.warn("NFC scanning not supported:", err);
-        });
-    }
+        } else {
+          setError("מכשיר זה לא תומך ב־NFC.");
+          setMode("error");
+        }
+      } catch (err) {
+        setError("שגיאה בעת קריאת הצמיד.");
+        setMode("error");
+      }
+    };
+
+    handleNfc();
   }, []);
 
+  const handleIdSearch = () => {
+    if (searchValue.trim()) {
+      fetchData(searchValue.trim());
+    }
+  };
+
   return (
-    <div style={{ direction: "rtl", padding: 20, textAlign: "center" }}>
+    <div className="scanner-container">
       <h2>תצוגה אישית</h2>
 
-      {!data && (
+      {mode === "waiting" && (
         <>
-          <p>{statusMessage}</p>
           <input
             type="text"
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
             placeholder="הכנס תעודת זהות"
-            value={idInput}
-            onChange={(e) => setIdInput(e.target.value)}
-            style={{ padding: "10px", fontSize: "16px", width: "250px", margin: "10px" }}
           />
-          <br />
-          <button onClick={handleIdSearch} style={{ padding: "10px 20px", fontSize: "16px" }}>
-            חפש לפי ת.ז
-          </button>
+          <button onClick={handleIdSearch}>חפש לפי ת.ז</button>
+          <p>📳 סרוק את הצמיד או הזן תעודת זהות</p>
         </>
       )}
 
-      {data && (
+      {loading && <p>טוען נתונים...</p>}
+
+      {error && (
+        <p style={{ color: "red", fontWeight: "bold" }}>❌ {error}</p>
+      )}
+
+      {climberData && (
         <>
-          <h3>שלום, {data.name}</h3>
-          <p>קטגוריה: {data.category}</p>
-          <p>מועדון: {data.club}</p>
-          <table style={{ margin: "auto", marginTop: "20px", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={{ border: "1px solid #ccc", padding: "6px" }}>מסלול</th>
-                <th style={{ border: "1px solid #ccc", padding: "6px" }}>ניסיונות</th>
-                <th style={{ border: "1px solid #ccc", padding: "6px" }}>סטטוס</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data.routes || []).map((route, idx) => (
-                <tr key={idx}>
-                  <td style={{ border: "1px solid #ccc", padding: "6px" }}>{route.routeNumber}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "6px" }}>{route.attempts}</td>
-                  <td style={{ border: "1px solid #ccc", padding: "6px" }}>
-                    {route.success ? "✅" : "❌"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p style={{ marginTop: "15px" }}>
-            הצלחת {data.routes.filter((r) => r.success).length} מתוך 7 מסלולים
-          </p>
+          <ClimberScore data={climberData} />
+          <ClimberTable data={climberData} />
         </>
       )}
     </div>
   );
-}
+};
 
 export default NfcPersonalScanner;
