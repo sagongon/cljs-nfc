@@ -1,4 +1,4 @@
-// ✅ server.js – גרסה מלאה, מתוקנת, תואמת ESM, עם Google Sheets
+// ✅ server.js – גרסה מתקדמת עם ברירת מחדל וניהול גיליון דינמי
 import express from 'express';
 import cors from 'cors';
 import { google } from 'googleapis';
@@ -8,9 +8,7 @@ import { fileURLToPath } from 'url';
 import dns from 'dns';
 import dotenv from 'dotenv';
 
-// טוען משתני סביבה מה־.env
 dotenv.config();
-
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,16 +22,19 @@ const PORT = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
-const SHEET_ID = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
+// 🟡 טעינת ID דינמי עם ברירת מחדל
+let SHEET_ID = process.env.ACTIVE_SPREADSHEET_ID || process.env.DEFAULT_SPREADSHEET_ID;
+if (!SHEET_ID) {
+  console.error('❌ לא הוגדר Spreadsheet ID - יש להכניס ACTIVE או DEFAULT בסביבת העבודה');
+  process.exit(1);
+}
 
 let credentials;
 let CREDENTIALS_PATH;
 
 if (process.env.GOOGLE_CREDENTIALS_JSON) {
-  // מצב ענן
   credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
 } else {
-  // מצב מקומי
   CREDENTIALS_PATH = process.env.GOOGLE_SA_PATH;
   credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
 }
@@ -44,7 +45,7 @@ const sheets = google.sheets({ version: 'v4', auth });
 
 const ADMIN_CODE = '007';
 const attemptsMemory = {};
-const queues = {}; // שמירת תורים לפי stationId
+const queues = {}; // תורים לפי תחנה
 
 async function ensureNFCMapSheet() {
   const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
@@ -538,6 +539,23 @@ app.get('/search-id/:id', async (req, res) => {
     console.error('שגיאה בחיפוש ת.ז:', e.message);
     res.status(500).json({ error: 'שגיאה בשרת' });
   }
+});
+
+// ✅ עדכון מזהה גיליון דרך סיסמת אדמין
+app.post('/update-sheet-id', (req, res) => {
+  const { newSheetId, password } = req.body;
+
+  if (password !== process.env.ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'סיסמה שגויה' });
+  }
+
+  if (!newSheetId || typeof newSheetId !== 'string') {
+    return res.status(400).json({ error: 'מזהה גיליון לא תקין' });
+  }
+
+  process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
+  console.log(`✅ ACTIVE_SPREADSHEET_ID עודכן ל: ${newSheetId}`);
+  res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
 });
 
 

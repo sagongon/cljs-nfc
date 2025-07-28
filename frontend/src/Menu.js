@@ -10,6 +10,7 @@ const links = [
   { label: '📊 דירוג בזמן אמת', url: 'https://cljs-nfc-ashy.vercel.app/live' },
   { label: '📲 צפייה בתוצאות אישיות (סריקת צמיד)', url: 'https://cljs-nfc-ashy.vercel.app/nfc-personal-scanner' },
   { label: '🔍 צפייה לפי תעודת זהות', url: 'https://cljs-nfc-ashy.vercel.app/id-search' },
+{ label: '🛠️ ניהול מזהה גיליון (לשופט ראשי)', url: '/spreadsheet-settings' },
 ];
 
 export default function Menu() {
