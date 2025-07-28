@@ -1,109 +1,87 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import './LiveBoard.css';
+import { useParams, useSearchParams } from 'react-router-dom';
 
-const SERVER_URL =
-  window.location.hostname === 'localhost'
-    ? 'http://localhost:4000'
-    : 'https://personalliveresults.onrender.com';
+const SERVER = 'https://personalliveresults.onrender.com';
 
-const NfcPersonalScanner = () => {
+export default function NfcPersonalScanner() {
   const { uid } = useParams();
-  const location = useLocation();
-  const [name, setName] = useState('');
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const id = searchParams.get('id');
+  const [data, setData] = useState(null);
+  const [tz, setTz] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const value = uid || id;
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const id = searchParams.get('id');
+    if (!value) return;
+    setLoading(true);
+    axios
+      .get(`${SERVER}/search-id/${value}`)
+      .then((res) => {
+        setData(res.data);
+        setError('');
+      })
+      .catch(() => {
+        setError('לא נמצאו נתונים עבור הצמיד הזה.');
+        setData(null);
+      })
+      .finally(() => setLoading(false));
+  }, [value]);
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  const handleSearch = () => {
+    if (!tz) return;
+    window.location.href = `/nfc-personal-scanner?id=${tz}`;
+  };
 
-        if (id) {
-          const res = await axios.get(`${SERVER_URL}/search-id/${id}`);
-          if (res.data && res.data.name) {
-            setName(res.data.name);
-          } else {
-            setError('לא נמצא מתחרה עם תעודת זהות זו');
-            setLoading(false);
-            return;
-          }
-        } else if (uid) {
-          const res = await axios.get(`${SERVER_URL}/search-uid/${uid}`);
-          if (res.data && res.data.name) {
-            setName(res.data.name);
-          } else {
-            setError('לא נמצא מתחרה עבור UID זה');
-            setLoading(false);
-            return;
-          }
-        } else {
-          setError('לא התקבל UID או תעודת זהות');
-          setLoading(false);
-          return;
-        }
-      } catch (err) {
-        setError('שגיאה בקבלת נתוני המתחרה');
-        setLoading(false);
-      }
-    };
+  if (!uid && !id) {
+    return (
+      <div style={{ textAlign: 'center', marginTop: '50px' }}>
+        <h2>🔍 תצוגת תוצאות אישיות</h2>
+        <p style={{ color: '#66ffff' }}>הזן תעודת זהות:</p>
+        <input
+          value={tz}
+          onChange={(e) => setTz(e.target.value)}
+          placeholder="הקלד ת.ז"
+          style={{ padding: '10px', fontSize: '16px' }}
+        />
+        <br /><br />
+        <button onClick={handleSearch} style={{ padding: '10px 20px', fontSize: '16px' }}>
+          חפש לפי תעודת זהות
+        </button>
+        <p style={{ marginTop: '30px', color: 'gray' }}>או סרוק צמיד להצגת תוצאות</p>
+      </div>
+    );
+  }
 
-    fetchData();
-  }, [uid, location.search]);
-
-  useEffect(() => {
-    if (!name) return;
-    const getResults = async () => {
-      try {
-        const res = await axios.get(`${SERVER_URL}/personal/${encodeURIComponent(name)}`);
-        setData(res.data.routes || []);
-        setLoading(false);
-      } catch (err) {
-        setError('שגיאה בטעינת תוצאות');
-        setLoading(false);
-      }
-    };
-
-    getResults();
-  }, [name]);
-
-  if (loading) return <div className="live-board">⏳ טוען נתונים...</div>;
-  if (error) return <div className="live-board">❌ {error}</div>;
-  if (!name) return <div className="live-board">🔄 אנא סרוק צמיד או הזן תעודת זהות</div>;
-
-  const successfulRoutes = data.filter(r => r.success);
-  const top7 = [...data]
-    .filter(r => r.success)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 7);
-  const top7Total = top7.reduce((sum, r) => sum + r.score, 0);
+  if (loading) return <h3 style={{ textAlign: 'center' }}>טוען נתונים...</h3>;
+  if (error) return <h3 style={{ color: 'red', textAlign: 'center' }}>❌ {error}</h3>;
+  if (!data) return null;
 
   return (
-    <div className="live-board">
-      <h2>🧗‍♂️ תוצאות אישיות עבור {name}</h2>
-      <p>✅ הצלחות: {successfulRoutes.length} מתוך 7</p>
-      <p>🏆 ניקוד כולל (7 הכי טובים): {top7Total}</p>
+    <div style={{ padding: '20px', textAlign: 'center' }}>
+      <h2>📋 תוצאות של {data.name}</h2>
+      <p>קטגוריה: {data.category}</p>
+      <p>מועדון: {data.club}</p>
+      <h3>ניקוד: {data.totalScore} נק׳ ({data.validRoutes.length}/7 מסלולים)</h3>
 
-      <table>
+      <table style={{ margin: '0 auto', borderCollapse: 'collapse', marginTop: '20px' }}>
         <thead>
           <tr>
             <th>מסלול</th>
-            <th>ניסיונות</th>
             <th>ניקוד</th>
+            <th>ניסיונות</th>
             <th>סטטוס</th>
           </tr>
         </thead>
         <tbody>
-          {data.map((route, index) => (
-            <tr key={index}>
-              <td>{route.route}</td>
+          {data.routes.map((route) => (
+            <tr key={route.number}>
+              <td>{route.number}</td>
+              <td>{route.score}</td>
               <td>{route.attempts}</td>
-              <td>{route.success ? route.score : '-'}</td>
               <td>{route.success ? '✅' : '❌'}</td>
             </tr>
           ))}
@@ -111,6 +89,4 @@ const NfcPersonalScanner = () => {
       </table>
     </div>
   );
-};
-
-export default NfcPersonalScanner;
+}
