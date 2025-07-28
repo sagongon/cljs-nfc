@@ -1,109 +1,98 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import ClimberTable from "./ClimberTable";
 import ClimberScore from "./ClimberScore";
 
 const NfcPersonalScanner = () => {
-  const [searchValue, setSearchValue] = useState("");
   const [climberData, setClimberData] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [idNumber, setIdNumber] = useState("");
+  const [scanning, setScanning] = useState(false);
   const [error, setError] = useState("");
-  const [mode, setMode] = useState("waiting");
 
-  const SERVER_URL =
-    window.location.hostname === "localhost"
-      ? "http://localhost:4000"
-      : "https://personalliveresults.onrender.com";
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const uid = searchParams.get("uid");
 
-  const fetchData = async (identifier) => {
+    if (uid) {
+      fetchDataByUid(uid);
+    }
+  }, []);
+
+  const fetchDataByUid = async (uid) => {
     try {
-      setLoading(true);
-      setError("");
-      setClimberData(null);
+      const response = await fetch(
+        "https://personalliveresults.onrender.com/search",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ uid }),
+        }
+      );
 
-      const isId = /^\d{5,10}$/.test(identifier); // מזהה אם זו ת"ז או UID
-      const endpoint = isId
-        ? `${SERVER_URL}/search-id/${identifier}`
-        : `${SERVER_URL}/personal/${identifier}`;
-
-      const response = await axios.get(endpoint);
-
-      if (response.data && response.data.success) {
-        setClimberData(response.data);
-        setMode("result");
-      } else {
-        setError("לא נמצאו נתונים עבור הצמיד הזה או תעודת הזהות.");
-        setMode("error");
-      }
+      const data = await response.json();
+      setClimberData(data);
     } catch (err) {
-      setError("שגיאה בעת טעינת נתונים.");
-      setMode("error");
-    } finally {
-      setLoading(false);
+      console.error("שגיאה בשליפת נתונים לפי UID:", err);
+      setError("שגיאה בשליפת נתונים מהשרת.");
     }
   };
 
-  useEffect(() => {
-    const handleNfc = async () => {
-      try {
-        if ("NDEFReader" in window) {
-          const ndef = new window.NDEFReader();
-          await ndef.scan();
-          ndef.onreading = (event) => {
-            const uid = event.serialNumber;
-            if (uid) {
-              fetchData(uid);
-            } else {
-              setError("לא התקבל UID.");
-              setMode("error");
-            }
-          };
-        } else {
-          setError("מכשיר זה לא תומך ב־NFC.");
-          setMode("error");
+  const fetchDataById = async () => {
+    setScanning(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        "https://personalliveresults.onrender.com/search-id",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ idNumber }),
         }
-      } catch (err) {
-        setError("שגיאה בעת קריאת הצמיד.");
-        setMode("error");
+      );
+
+      const data = await response.json();
+
+      if (data && data.name) {
+        setClimberData(data);
+      } else {
+        setError("לא נמצא מתחרה עם תעודת הזהות שהוזנה.");
+        setClimberData(null);
       }
-    };
-
-    handleNfc();
-  }, []);
-
-  const handleIdSearch = () => {
-    if (searchValue.trim()) {
-      fetchData(searchValue.trim());
+    } catch (err) {
+      console.error("שגיאה בשליפת נתונים לפי תעודת זהות:", err);
+      setError("שגיאה בשליפת נתונים מהשרת.");
+      setClimberData(null);
     }
+
+    setScanning(false);
   };
 
   return (
-    <div className="scanner-container">
-      <h2>תצוגה אישית</h2>
+    <div className="nfc-scanner">
+      <h2>תצוגה אישית למתחרה</h2>
 
-      {mode === "waiting" && (
+      {!climberData && (
         <>
+          <p>הכנס תעודת זהות לצפייה בתוצאות:</p>
           <input
             type="text"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="הכנס תעודת זהות"
+            placeholder="תעודת זהות"
+            value={idNumber}
+            onChange={(e) => setIdNumber(e.target.value)}
           />
-          <button onClick={handleIdSearch}>חפש לפי ת.ז</button>
-          <p>📳 סרוק את הצמיד או הזן תעודת זהות</p>
+          <button onClick={fetchDataById} disabled={scanning}>
+            {scanning ? "טוען..." : "הצג תוצאות"}
+          </button>
+          {error && <p style={{ color: "red" }}>{error}</p>}
         </>
-      )}
-
-      {loading && <p>טוען נתונים...</p>}
-
-      {error && (
-        <p style={{ color: "red", fontWeight: "bold" }}>❌ {error}</p>
       )}
 
       {climberData && (
         <>
           <ClimberScore data={climberData} />
-          <ClimberTable data={climberData} />
         </>
       )}
     </div>
