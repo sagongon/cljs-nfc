@@ -567,7 +567,7 @@ app.get('/nfc-name/:uid', async (req, res) => {
   }
 });
 
-// ✅ שיוך UID למתחרה
+// ✅ שיוך UID לשם מתחרה
 app.post('/assign-nfc', async (req, res) => {
   await ensureNFCMapSheet();
   const { name, uid } = req.body;
@@ -581,6 +581,7 @@ app.post('/assign-nfc', async (req, res) => {
     });
 
     const rows = result.data.values || [];
+
     const uidRow = rows.find(row => row[0] === uid);
     const nameRow = rows.find(row => row[1] === name);
 
@@ -613,7 +614,7 @@ app.post('/assign-nfc', async (req, res) => {
   }
 });
 
-// ✅ דף בדיקה שהשרת פעיל
+// ✅ בדיקת סטטוס השרת
 app.get('/', (req, res) => {
   res.send('🟢 Backend server is running');
 });
