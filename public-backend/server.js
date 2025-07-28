@@ -436,10 +436,11 @@ app.get('/personal/:name', async (req, res) => {
 
     const rows = response.data.values || [];
 
-    const match = rows.find(row => (row[5] || '').toString().trim() === id);
+const match = rows.find(row => (row[6] || '').toString().trim() === id.trim());
 
-    if (match) {
-      const name = match[0];
+if (match) {
+  const name = match[0];
+  
       res.json({ name });
 
 // ✅ ראוט חדש עצמאי לחיפוש לפי ת"ז
