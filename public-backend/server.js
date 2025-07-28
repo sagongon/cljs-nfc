@@ -32,9 +32,6 @@ if (!ACTIVE_SPREADSHEET_ID) {
 app.use(cors());
 app.use(express.json());
 
-let DEFAULT_SPREADSHEET_ID = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
-let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
-
 let credentials;
 let CREDENTIALS_PATH;
 
