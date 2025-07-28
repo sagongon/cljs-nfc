@@ -27,12 +27,21 @@ export default function IdSearch() {
         return;
       }
 
-      setMessage(`📋 מוצגות התוצאות של ${data.name}`);
-      setPersonalData(data);
-    } catch (err) {
-      setMessage('❌ שגיאה בשליפת נתונים מהשרת');
-    }
-  };
+     setMessage(`📋 מוצגות התוצאות של ${data.name}`);
+
+try {
+  const personalRes = await fetch(`${SERVER_URL}/personal/${encodeURIComponent(data.name)}`);
+  const personal = await personalRes.json();
+
+  if (!personalRes.ok || personal.error) {
+    setMessage('❌ שגיאה בשליפת תוצאות');
+    return;
+  }
+
+  setPersonalData(personal);
+} catch (err) {
+  setMessage('❌ שגיאה בשליפת תוצאות מהשרת');
+}
 
   const topRoutes = personalData?.results
     ?.filter(r => r.success)
