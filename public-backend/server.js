@@ -24,6 +24,37 @@ const PORT = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 
+app.post('/search-id', async (req, res) => {
+  const { idNumber } = req.body;
+  if (!idNumber) return res.status(400).json({ error: 'Missing ID number' });
+
+  try {
+    const doc = await docClient.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Competitors!B2:H',
+    });
+
+    const rows = doc.data.values || [];
+    const match = rows.find(row => row[6] === idNumber); // עמודה G = אינדקס 6
+
+    if (!match) return res.status(404).json({ error: 'ID not found' });
+
+    const name = match[0];
+
+    // מחשבים את התוצאות לפי הגיליון Score ו־Assist Tables
+    // (אפשר לשלב את הקוד שיש לנו כבר, או שאכתוב מחדש אם תרצה)
+
+    res.json({ name, results: [], totalScore: 0 }); // דוגמה בסיסית
+  } catch (err) {
+    console.error('Error in /search-id:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+
+
+
 const SHEET_ID = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
 
 let credentials;
