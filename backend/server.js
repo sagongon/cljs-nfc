@@ -493,6 +493,24 @@ app.get('/nfc-name/:uid', async (req, res) => {
   }
 });
 
+app.get('/nfc-name/:uid', async (req, res) => {
+  try {
+    const uidParam = (req.params.uid || '').trim().toLowerCase();
+    const doc = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'NFCMap!A2:B',
+    });
+
+    const rows = doc.data.values || [];
+    const match = rows.find(row => (row[0] || '').trim().toLowerCase() === uidParam);
+    if (!match) return res.status(404).json({ error: 'UID not found' });
+
+    res.json({ uid: uidParam, name: match[1] });
+  } catch (err) {
+    console.error('שגיאה בשליפת UID מ-NFCMAP:', err);
+    res.status(500).json({ error: 'שגיאה בקריאת הנתונים' });
+  }
+});
 
 app.get('/search-id/:id', async (req, res) => {
   const id = req.params.id;
@@ -502,7 +520,7 @@ app.get('/search-id/:id', async (req, res) => {
       range: 'Competitors!B2:H',
     });
     const rows = sheetRes.data.values || [];
-    const match = rows.find(row => (row[6] || '').trim() === id.trim());
+    const match = rows.find(row => row[5] === id); // עמודה G = אינדקס 5
     if (match) {
       const name = match[0];
       const nfcRes = await sheets.spreadsheets.values.get({
@@ -576,5 +594,3 @@ app.post('/assign-nfc', async (req, res) => {
     res.status(500).json({ error: 'שגיאה בשיוך UID' });
   }
 });
-
-
