@@ -18,13 +18,7 @@ export default function IdSearch() {
     setPersonalData(null);
 
     try {
-      const res = await fetch(`${SERVER_URL}/search-id`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ idNumber })
-      });
+      const res = await fetch(`${SERVER_URL}/search-id/${encodeURIComponent(idNumber)}`);
 
       const data = await res.json();
 
