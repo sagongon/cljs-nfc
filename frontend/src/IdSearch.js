@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import './NfcPersonalScanner.css';
 
 const SERVER_URL =
   window.location.hostname === 'localhost'
