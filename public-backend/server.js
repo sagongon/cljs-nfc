@@ -457,77 +457,74 @@ app.get('/search-id/:id', async (req, res) => {
 
     if (match) {
       const name = match[0];
-      res.json({ name });
-    } else {
-      res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
-    }
-  } catch (err) {
-    console.error('❌ שגיאה בנתיב /search-id:', err.message);
-    res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
-  }
-});
 
-    } else {
-      res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
-    }
-  } catch (err) {
-    console.error('❌ שגיאה בנתיב /search-id:', err.message);
-    res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
-  }
-});
+      // המשך שליפת נתוני הניסיונות והניקוד האישי
+      const [assistRes, allAttemptsRes] = await Promise.all([
+        sheets.spreadsheets.values.get({
+          spreadsheetId: SHEET_ID,
+          range: 'Assist Tables!B2:AZ2',
+        }),
+        sheets.spreadsheets.values.get({
+          spreadsheetId: SHEET_ID,
+          range: 'AllAttempts!B2:D',
+        }),
+      ]);
 
+      const assistScores = assistRes.data.values?.[0] || [];
+      const allAttemptsRows = allAttemptsRes.data.values || [];
 
-    const assistScores = assistRes.data.values?.[0] || [];
-    const allAttemptsRows = allAttemptsRes.data.values || [];
+      const attemptHistory = {};
+      for (const [rowName, routeStr, result] of allAttemptsRows) {
+        if (rowName !== name) continue;
+        const route = parseInt(routeStr);
+        if (!attemptHistory[route]) attemptHistory[route] = [];
+        attemptHistory[route].push(result);
+      }
 
-    const attemptHistory = {};
-    for (const [rowName, routeStr, result] of allAttemptsRows) {
-      if (rowName !== name) continue;
-      const route = parseInt(routeStr);
-      if (!attemptHistory[route]) attemptHistory[route] = [];
-      attemptHistory[route].push(result);
-    }
+      const results = [];
+      for (let route = 1; route <= 52; route++) {
+        const baseScore = parseInt(assistScores[route - 1] || '0');
+        const fullHistory = attemptHistory[route] || [];
 
-    const results = [];
-    for (let route = 1; route <= 52; route++) {
-      const baseScore = parseInt(assistScores[route - 1] || '0');
-      const fullHistory = attemptHistory[route] || [];
+        // Find last RESET and take only entries after it
+        let lastResetIndex = -1;
+        for (let i = fullHistory.length - 1; i >= 0; i--) {
+          if (fullHistory[i] === 'RESET') {
+            lastResetIndex = i;
+            break;
+          }
+        }
+        const activeSeries = fullHistory.slice(lastResetIndex + 1);
+        const attemptsOnly = activeSeries.filter(v => v === 'X' || v === 'T');
 
-      // Find last RESET and take only entries after it
-      let lastResetIndex = -1;
-      for (let i = fullHistory.length - 1; i >= 0; i--) {
-        if (fullHistory[i] === 'RESET') {
-          lastResetIndex = i;
-          break;
+        const attempts = attemptsOnly.length;
+        const success = attemptsOnly.includes('T');
+        const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
+
+        if (attempts > 0 || success) {
+          results.push({ route, attempts, score, success });
+        } else {
+          results.push({ route, attempts: null, score: 0, success: false });
         }
       }
-      const activeSeries = fullHistory.slice(lastResetIndex + 1);
-      const attemptsOnly = activeSeries.filter(v => v === 'X' || v === 'T');
 
-      const attempts = attemptsOnly.length;
-      const success = attemptsOnly.includes('T');
-      const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
+      const totalScore = results
+        .filter((r) => r.success)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 7)
+        .reduce((sum, r) => sum + r.score, 0);
 
-      if (attempts > 0 || success) {
-        results.push({ route, attempts, score, success });
-      } else {
-        results.push({ route, attempts: null, score: 0, success: false });
-      }
+      res.json({ name, results, totalScore });
+    } else {
+      res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
     }
-
-    const totalScore = results
-      .filter((r) => r.success)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 7)
-      .reduce((sum, r) => sum + r.score, 0);
-
-    res.json({ name, results, totalScore });
   } catch (err) {
-    console.error('❌ שגיאה בנתיב /personal:', err.message);
-    res.status(500).json({ error: 'שגיאה בשליפת מידע אישי' });
+    console.error('❌ שגיאה בנתיב /search-id:', err.message);
+    res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
   }
 });
 
+// ✅ UID → name
 app.get('/get-latest-uid', (req, res) => {
   try {
     const uid = fs.readFileSync('latest_uid.txt', 'utf-8').trim();
@@ -545,9 +542,9 @@ app.get('/nfc-name/:uid', async (req, res) => {
       range: 'NFCMap!A2:B',
     });
     const rows = response.data.values || [];
-   const match = rows.find(row =>
-  (row[0] || '').replace(/[:\s]/g, '').toLowerCase() === uid.replace(/[:\s]/g, '').toLowerCase()
-);
+    const match = rows.find(row =>
+      (row[0] || '').replace(/[:\s]/g, '').toLowerCase() === uid.replace(/[:\s]/g, '').toLowerCase()
+    );
 
     if (match) {
       res.json({ name: match[1] });
@@ -560,11 +557,12 @@ app.get('/nfc-name/:uid', async (req, res) => {
   }
 });
 
- app.get('/', (req, res) => {
+// ✅ דף בדיקה
+app.get('/', (req, res) => {
   res.send('🟢 Backend server is running');
 });
- 
 
+// ✅ הפעלת השרת
 app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
   await restoreAttemptsMemory();
