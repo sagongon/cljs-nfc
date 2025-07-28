@@ -603,6 +603,8 @@ app.post('/update-sheet-id', (req, res) => {
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
 
+  const ADMIN_CODE = process.env.ADMIN_CODE || '1234'; // ברירת מחדל אם לא הוגדר
+
   if (adminCode !== ADMIN_CODE) {
     return res.status(403).json({ error: 'קוד מנהל שגוי' });
   }
@@ -610,6 +612,13 @@ app.post('/set-active-sheet', async (req, res) => {
   if (!newSheetId || typeof newSheetId !== 'string') {
     return res.status(400).json({ error: 'ID גיליון לא תקין' });
   }
+
+  // ✅ עדכון המזהה הפעיל בזמן ריצה
+  ACTIVE_SPREADSHEET_ID = newSheetId;
+  console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
+
+  return res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
+});
 
   // ✍️ שמירה בקובץ מקומי
   const envPath = path.join(__dirname, '.env');

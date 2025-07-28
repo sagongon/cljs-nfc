@@ -25,7 +25,7 @@ export default function SpreadsheetSettings() {
       const res = await fetch(`${SERVER_URL}/set-active-sheet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminCode, newSheetId: sheetId }),
+        body: JSON.stringify({ adminCode, spreadsheetId: sheetId }),
       });
 
       const data = await res.json();

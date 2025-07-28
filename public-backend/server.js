@@ -591,22 +591,25 @@ app.post('/assign-nfc', async (req, res) => {
   }
 });
 
-// ✅ מסלול לעדכון מזהה הגיליון הפעיל דרך בקשת POST מה־frontend
-app.post('/set-active-sheet', (req, res) => {
+// ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
+app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
 
- if (adminCode !== ADMIN_CODE) {
-  return res.status(403).json({ error: 'קוד מנהל שגוי' });
-}
+  const ADMIN_CODE = process.env.ADMIN_CODE || '1234'; // ברירת מחדל אם לא הוגדר
 
-
-  if (!newSheetId || typeof newSheetId !== 'string') {
-    return res.status(400).json({ error: 'Spreadsheet ID לא תקין' });
+  if (adminCode !== ADMIN_CODE) {
+    return res.status(403).json({ error: 'קוד מנהל שגוי' });
   }
 
+  if (!newSheetId || typeof newSheetId !== 'string') {
+    return res.status(400).json({ error: 'ID גיליון לא תקין' });
+  }
+
+  // ✅ עדכון המזהה הפעיל בזמן ריצה
   ACTIVE_SPREADSHEET_ID = newSheetId;
-  console.log(`✅ עודכן ACTIVE_SPREADSHEET_ID: ${ACTIVE_SPREADSHEET_ID}`);
-  res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
+  console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
+
+  return res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
 });
 
 
