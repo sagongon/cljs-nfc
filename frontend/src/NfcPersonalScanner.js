@@ -1,102 +1,107 @@
 import React, { useEffect, useState } from "react";
-import ClimberScore from "./ClimberScore";
 
-const NfcPersonalScanner = () => {
-  const [climberData, setClimberData] = useState(null);
-  const [idNumber, setIdNumber] = useState("");
-  const [scanning, setScanning] = useState(false);
+const SERVER_URL =
+  window.location.hostname === "localhost"
+    ? "http://localhost:9000"
+    : "https://personalliveresults.onrender.com";
+
+export default function NfcPersonalScanner() {
+  const [searchValue, setSearchValue] = useState("");
+  const [climberName, setClimberName] = useState(null);
+  const [results, setResults] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const uid = searchParams.get("uid");
-
-    if (uid) {
-      fetchDataByUid(uid);
-    }
-  }, []);
-
-  const fetchDataByUid = async (uid) => {
+  const fetchResults = async (type, value) => {
     try {
-      const response = await fetch(
-        "https://personalliveresults.onrender.com/search",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ uid }),
-        }
-      );
-
-      const data = await response.json();
-      setClimberData(data);
+      setLoading(true);
+      const res = await fetch(`${SERVER_URL}/search-${type}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [type === "uid" ? "uid" : "idNumber"]: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "שגיאה בטעינת נתונים");
+      setClimberName(data.name);
+      setResults(data.routes || []);
     } catch (err) {
-      console.error("שגיאה בשליפת נתונים לפי UID:", err);
-      setError("שגיאה בשליפת נתונים מהשרת.");
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fetchDataById = async () => {
-    setScanning(true);
-    setError("");
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!searchValue.trim()) return;
+    const isID = /^\d{9}$/.test(searchValue);
+    fetchResults(isID ? "id" : "uid", searchValue.trim());
+  };
 
-    try {
-      const response = await fetch(
-        "https://personalliveresults.onrender.com/search-id",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ idNumber }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (data && data.name) {
-        setClimberData(data);
-      } else {
-        setError("לא נמצא מתחרה עם תעודת הזהות שהוזנה.");
-        setClimberData(null);
-      }
-    } catch (err) {
-      console.error("שגיאה בשליפת נתונים לפי תעודת זהות:", err);
-      setError("שגיאה בשליפת נתונים מהשרת.");
-      setClimberData(null);
-    }
-
-    setScanning(false);
+  const calculateTop7Score = (routes) => {
+    const scores = routes
+      .filter((r) => r.success)
+      .map((r) => r.score)
+      .sort((a, b) => b - a)
+      .slice(0, 7);
+    return scores.reduce((sum, val) => sum + val, 0);
   };
 
   return (
-    <div className="nfc-scanner">
-      <h2>תצוגה אישית למתחרה</h2>
+    <div style={{ direction: "rtl", textAlign: "center", padding: 20 }}>
+      <h2>תוצאות ספורטאי לפי UID או תעודת זהות</h2>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          placeholder="הזן UID או ת.ז"
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          style={{ padding: 10, width: "60%" }}
+        />
+        <button type="submit" style={{ padding: 10, marginRight: 10 }}>
+          חפש
+        </button>
+      </form>
 
-      {!climberData && (
-        <>
-          <p>הכנס תעודת זהות לצפייה בתוצאות:</p>
-          <input
-            type="text"
-            placeholder="תעודת זהות"
-            value={idNumber}
-            onChange={(e) => setIdNumber(e.target.value)}
-          />
-          <button onClick={fetchDataById} disabled={scanning}>
-            {scanning ? "טוען..." : "הצג תוצאות"}
-          </button>
-          {error && <p style={{ color: "red" }}>{error}</p>}
-        </>
-      )}
+      {loading && <p>טוען נתונים...</p>}
+      {error && <p style={{ color: "red" }}>{error}</p>}
 
-      {climberData && (
-        <>
-          <ClimberScore data={climberData} />
-        </>
+      {results && (
+        <div style={{ marginTop: 30 }}>
+          <h3>{climberName} – סיכום אישי</h3>
+          <p>
+            הצלחות: {results.filter((r) => r.success).length} / 7<br />
+            ניקוד כולל: {calculateTop7Score(results)}
+          </p>
+          <table
+            style={{
+              margin: "auto",
+              borderCollapse: "collapse",
+              width: "90%",
+              marginTop: 20,
+            }}
+          >
+            <thead>
+              <tr>
+                <th>מסלול</th>
+                <th>ניסיונות</th>
+                <th>הצלחה</th>
+                <th>ניקוד</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.map((route, idx) => (
+                <tr key={idx}>
+                  <td>{route.route}</td>
+                  <td>{route.attempts}</td>
+                  <td>{route.success ? "✅" : "❌"}</td>
+                  <td>{route.success ? route.score : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
-};
-
-export default NfcPersonalScanner;
+}
