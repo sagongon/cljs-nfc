@@ -1,103 +1,144 @@
-import React, { useEffect, useState } from "react";
+/* global NDEFReader */
+import React, { useEffect, useState } from 'react';
 
-const SERVER_URL =
-  window.location.hostname === "localhost"
-    ? "http://localhost:9000"
-    : "https://personalliveresults.onrender.com";
+const SERVER_URL = 'https://personalliveresults.onrender.com';
 
 export default function NfcPersonalScanner() {
-  const [searchValue, setSearchValue] = useState("");
-  const [climberName, setClimberName] = useState(null);
-  const [results, setResults] = useState(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('📡 מחכה לצמיד...');
+  const [extraInfo, setExtraInfo] = useState('');
+  const [scanning, setScanning] = useState(false);
+  const [personalData, setPersonalData] = useState(null);
 
-  const fetchResults = async (type, value) => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${SERVER_URL}/search-${type}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [type === "uid" ? "uid" : "idNumber"]: value }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "שגיאה בטעינת נתונים");
-      setClimberName(data.name);
-      setResults(data.routes || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const startNfcScan = async () => {
+      if (!('NDEFReader' in window)) {
+        setMessage('❌ המכשיר שלך לא תומך ב־NFC');
+        return;
+      }
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!searchValue.trim()) return;
-    const isID = /^\d{9}$/.test(searchValue);
-    fetchResults(isID ? "id" : "uid", searchValue.trim());
-  };
+      try {
+        setScanning(true);
+        const ndef = new NDEFReader();
+        await ndef.scan();
+        setMessage('📶 סרוק את הצמיד שלך...');
+        setExtraInfo('');
 
-  const calculateTop7Score = (routes) => {
-    const scores = routes
-      .filter((r) => r.success)
-      .map((r) => r.score)
-      .sort((a, b) => b - a)
-      .slice(0, 7);
-    return scores.reduce((sum, val) => sum + val, 0);
-  };
+        ndef.onreading = async (event) => {
+          const rawUid = event.serialNumber;
+          const uid = (rawUid || '').trim().replace(/[^a-zA-Z0-9:]/g, '');
+          if (!uid) {
+            setMessage('❌ לא זוהה UID');
+            return;
+          }
+
+          setMessage('🔍 מאתר את הספורטאי לפי UID...');
+          setExtraInfo(`UID: ${uid}`);
+
+          try {
+            const nameRes = await fetch(`${SERVER_URL}/nfc-name/${uid}`);
+            const nameData = await nameRes.json();
+
+            if (!nameRes.ok || !nameData.name) {
+              setMessage('❌ UID לא נמצא בגיליון NFCMAP');
+              return;
+            }
+
+            const name = nameData.name;
+            setMessage(`📋 מוצגות התוצאות של ${name}`);
+
+            const personalRes = await fetch(`${SERVER_URL}/personal/${encodeURIComponent(name)}`);
+            const personal = await personalRes.json();
+
+            if (!personalRes.ok || personal.error) {
+              setMessage('❌ שגיאה בשליפת נתונים');
+              return;
+            }
+
+            setPersonalData(personal);
+          } catch (err) {
+            setMessage('❌ שגיאה בשליפת נתונים מהשרת');
+            setExtraInfo(`שגיאה: ${err.message}`);
+          }
+        };
+      } catch (err) {
+        setMessage('❌ שגיאה בהפעלת סריקה');
+        setExtraInfo(`שגיאה כללית: ${err.message}`);
+      } finally {
+        setScanning(false);
+      }
+    };
+
+    startNfcScan();
+  }, []);
+
+  const topRoutes = personalData?.results
+    ?.filter(r => r.success)
+    ?.sort((a, b) => {
+      if (b.score === a.score) return b.route - a.route;
+      return b.score - a.score;
+    })
+    ?.slice(0, 7)
+    ?.map(r => r.route) || [];
 
   return (
-    <div style={{ direction: "rtl", textAlign: "center", padding: 20 }}>
-      <h2>תוצאות ספורטאי לפי UID או תעודת זהות</h2>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="הזן UID או ת.ז"
-          value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
-          style={{ padding: 10, width: "60%" }}
-        />
-        <button type="submit" style={{ padding: 10, marginRight: 10 }}>
-          חפש
-        </button>
-      </form>
+    <div style={{ padding: 20, direction: 'rtl', textAlign: 'center' }}>
+      <h2>📲 צפייה בתוצאות</h2>
+      {message && <p style={{ fontSize: 18 }}>{message}</p>}
 
-      {loading && <p>טוען נתונים...</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {personalData && (
+        <div>
+          <h3>שם: {personalData.name}</h3>
+          <p>ניקוד כולל: {personalData.totalScore}</p>
+          <p>מסלולים שהושלמו: {personalData.results.filter(r => r.success).length}/7</p>
 
-      {results && (
-        <div style={{ marginTop: 30 }}>
-          <h3>{climberName} – סיכום אישי</h3>
-          <p>
-            הצלחות: {results.filter((r) => r.success).length} / 7<br />
-            ניקוד כולל: {calculateTop7Score(results)}
-          </p>
-          <table
-            style={{
-              margin: "auto",
-              borderCollapse: "collapse",
-              width: "90%",
-              marginTop: 20,
-            }}
-          >
+          <table style={{ margin: 'auto', borderCollapse: 'collapse', width: '90%' }}>
             <thead>
               <tr>
                 <th>מסלול</th>
                 <th>ניסיונות</th>
-                <th>הצלחה</th>
                 <th>ניקוד</th>
+                <th>✔️</th>
+                <th>🏅</th>
               </tr>
             </thead>
             <tbody>
-              {results.map((route, idx) => (
-                <tr key={idx}>
-                  <td>{route.route}</td>
-                  <td>{route.attempts}</td>
-                  <td>{route.success ? "✅" : "❌"}</td>
-                  <td>{route.success ? route.score : "-"}</td>
-                </tr>
-              ))}
+              {Array.from({ length: 30 }, (_, i) => {
+                const routeNum = i + 1;
+                const r = personalData.results.find(r => r.route === routeNum) || {};
+                const { success, score = 0, attempts = null } = r;
+
+                let bgColor = '#f0f0f0';
+                if (success) {
+                  bgColor = '#e0ffe0';
+                } else if (attempts === 5) {
+                  bgColor = '#fff5cc';
+                } else if (attempts != null) {
+                  bgColor = '#fff0f0';
+                }
+
+                let attemptDisplay = '-';
+                if (attempts != null) {
+                  if (!success && attempts === 4) {
+                    attemptDisplay = <span style={{ color: '#ff9900', fontWeight: 'bold' }}>{attempts}</span>;
+                  } else if (!success && attempts === 5) {
+                    attemptDisplay = <span style={{ color: '#cc0000', fontWeight: 'bold' }}>{attempts}</span>;
+                  } else {
+                    attemptDisplay = attempts;
+                  }
+                }
+
+                const isTopRoute = topRoutes.includes(routeNum);
+
+                return (
+                  <tr key={routeNum} style={{ backgroundColor: bgColor }}>
+                    <td>{routeNum}</td>
+                    <td>{attemptDisplay}</td>
+                    <td>{score}</td>
+                    <td>{success ? '✅' : attempts != null ? '❌' : ''}</td>
+                    <td>{isTopRoute ? '🏅' : ''}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
