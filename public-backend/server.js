@@ -24,35 +24,6 @@ const PORT = process.env.PORT;
 app.use(cors());
 app.use(express.json());
 
-app.post('/search-id', async (req, res) => {
-  const { idNumber } = req.body;
-  if (!idNumber) return res.status(400).json({ error: 'Missing ID number' });
-
-  try {
-    const doc = await docClient.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: 'Competitors!B2:H',
-    });
-
-    const rows = doc.data.values || [];
-    const match = rows.find(row => row[6] === idNumber); // עמודה G = אינדקס 6
-
-    if (!match) return res.status(404).json({ error: 'ID not found' });
-
-    const name = match[0];
-
-    // מחשבים את התוצאות לפי הגיליון Score ו־Assist Tables
-    // (אפשר לשלב את הקוד שיש לנו כבר, או שאכתוב מחדש אם תרצה)
-
-    res.json({ name, results: [], totalScore: 0 }); // דוגמה בסיסית
-  } catch (err) {
-    console.error('Error in /search-id:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-
-
 const SHEET_ID = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
 
 let credentials;
@@ -445,7 +416,6 @@ app.get('/live', async (req, res) => {
   }
 });
 
-
 app.get('/personal/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   console.log("📊 personal route activated for", name);
@@ -462,57 +432,49 @@ app.get('/personal/:name', async (req, res) => {
       }),
     ]);
 
-    const assistScores = assistRes.data.values?.[0] || [];
-    const allAttemptsRows = allAttemptsRes.data.values || [];
 
-    const attemptHistory = {};
-    for (const [rowName, routeStr, result] of allAttemptsRows) {
-      if (rowName !== name) continue;
-      const route = parseInt(routeStr);
-      if (!attemptHistory[route]) attemptHistory[route] = [];
-      attemptHistory[route].push(result);
+
+    const rows = response.data.values || [];
+
+const match = rows.find(row => (row[6] || '').toString().trim() === id.trim());
+
+if (match) {
+  const name = match[0];
+  
+      res.json({ name });
+
+// ✅ ראוט חדש עצמאי לחיפוש לפי ת"ז
+app.get('/search-id/:id', async (req, res) => {
+  const id = req.params.id.trim();
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'Competitors!B2:G',
+    });
+
+    const rows = response.data.values || [];
+    const match = rows.find(row => (row[5] || '').toString().trim() === id);
+
+    if (match) {
+      const name = match[0];
+      res.json({ name });
+    } else {
+      res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
     }
-
-    const results = [];
-    for (let route = 1; route <= 52; route++) {
-      const baseScore = parseInt(assistScores[route - 1] || '0');
-      const fullHistory = attemptHistory[route] || [];
-
-      let lastResetIndex = -1;
-      for (let i = fullHistory.length - 1; i >= 0; i--) {
-        if (fullHistory[i] === 'RESET') {
-          lastResetIndex = i;
-          break;
-        }
-      }
-
-      const activeSeries = fullHistory.slice(lastResetIndex + 1);
-      const attemptsOnly = activeSeries.filter(v => v === 'X' || v === 'T');
-      const attempts = attemptsOnly.length;
-      const success = attemptsOnly.includes('T');
-      const score = success ? Math.max(0, baseScore - (attempts - 1) * 10) : 0;
-
-      if (attempts > 0 || success) {
-        results.push({ route, attempts, score, success });
-      } else {
-        results.push({ route, attempts: null, score: 0, success: false });
-      }
-    }
-
-    const totalScore = results
-      .filter(r => r.success)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 7)
-      .reduce((sum, r) => sum + r.score, 0);
-
-    res.json({ name, results, totalScore });
-
   } catch (err) {
-    console.error('❌ שגיאה בנתיב /personal:', err.message);
+    console.error('❌ שגיאה בנתיב /search-id:', err.message);
     res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
   }
 });
 
+    } else {
+      res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
+    }
+  } catch (err) {
+    console.error('❌ שגיאה בנתיב /search-id:', err.message);
+    res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
+  }
+});
 
 
     const assistScores = assistRes.data.values?.[0] || [];
@@ -565,33 +527,6 @@ app.get('/personal/:name', async (req, res) => {
     res.status(500).json({ error: 'שגיאה בשליפת מידע אישי' });
   }
 });
-
-// ✅ ראוט חדש עצמאי לחיפוש לפי ת"ז
-app.get('/search-id/:id', async (req, res) => {
-  const id = req.params.id.trim();
-  try {
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: 'Competitors!B2:G',
-    });
-
-    const rows = response.data.values || [];
-    const match = rows.find(row => (row[5] || '').toString().trim() === id);
-
-    if (match) {
-      const name = match[0];
-      res.json({ name });
-    } else {
-      res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
-    }
-  } catch (err) {
-    console.error('❌ שגיאה בנתיב /search-id:', err.message);
-    res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
-  }
-});
-
-
-
 
 app.get('/get-latest-uid', (req, res) => {
   try {
