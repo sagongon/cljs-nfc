@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PersonalResults from './PersonalResults';
 
 const SERVER_URL =
   window.location.hostname === 'localhost'
@@ -58,33 +59,7 @@ export default function IdSearch() {
       <button onClick={handleSearch} className="nfc-button">בדוק</button>
       <p>{message}</p>
 
-      {personalData && (
-        <div className="nfc-results">
-          <h3>תוצאות עבור: {personalData.name}</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>מסלול</th>
-                <th>ניסיונות</th>
-                <th>הצלחה</th>
-                <th>ניקוד</th>
-              </tr>
-            </thead>
-            <tbody>
-              {personalData.routes.map((route, index) => (
-                <tr key={index}>
-                  <td>{route.number}</td>
-                  <td>{route.attempts}</td>
-                  <td>{route.success ? '✅' : '❌'}</td>
-                  <td>{route.score}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p>סה"כ ניקוד: {personalData.totalScore}</p>
-          <p>מסלולים מוצלחים: {personalData.successCount} / 7</p>
-        </div>
-      )}
+      {personalData && <PersonalResults data={personalData} />}
     </div>
   );
 }
