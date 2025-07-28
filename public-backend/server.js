@@ -11,7 +11,6 @@ import dotenv from 'dotenv';
 // טוען משתני סביבה מה־.env
 dotenv.config();
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -156,7 +155,7 @@ app.post('/sync-offline', async (req, res) => {
   if (!Array.isArray(attempts)) return res.status(400).json({ error: 'invalid format' });
 
   const results = [];
-  for (const { name, route, result } of attempts) {
+  for (const { name, route, result, stationId } of attempts) {
     const routeNum = parseInt(route, 10);
     if (!attemptsMemory[name]) attemptsMemory[name] = {};
     if (!attemptsMemory[name][routeNum]) attemptsMemory[name][routeNum] = [];
@@ -173,7 +172,7 @@ app.post('/sync-offline', async (req, res) => {
       await ensureAllAttemptsSheet();
       await sheets.spreadsheets.values.append({
         spreadsheetId: SHEET_ID,
-        range: 'AllAttempts!A:E',
+        range: 'AllAttempts!A:F',
         valueInputOption: 'USER_ENTERED',
         resource: {
           values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), stationId]],
@@ -281,19 +280,19 @@ app.post('/mark', async (req, res) => {
     await ensureAllAttemptsSheet();
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
-      range: 'AllAttempts!A:E',
+      range: 'AllAttempts!A:F',
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), stationId]],
       },
     });
 
-// הסרה מהתור אחרי סימון ניסיון
-if (queues) {
-  for (const id in queues) {
-    queues[id] = queues[id].filter(n => n !== name);
-  }
-}
+    // הסרה מהתור אחרי סימון ניסיון
+    if (queues) {
+      for (const id in queues) {
+        queues[id] = queues[id].filter(n => n !== name);
+      }
+    }
 
   } catch (err) {
     console.error('❌ שגיאה בכתיבה ל-AllAttempts:', err.message);
@@ -308,7 +307,6 @@ if (queues) {
 
   res.json({ message: 'OK', history: historyArr, locked: result === 'T' || historyArr.length >= 5 });
 });
-
 
 // 📥 הוספת מתחרה לתור לפי UID ותחנה
 app.post('/queue/add', async (req, res) => {
@@ -345,7 +343,6 @@ app.post('/queue/add', async (req, res) => {
   }
 });
 
-
 // ✅ החזרת כל התור לתחנה
 app.get('/queue/:stationId/all', (req, res) => {
   const { stationId } = req.params;
@@ -371,100 +368,9 @@ app.post('/queue/dequeue', (req, res) => {
   res.json({ removed });
 });
 
-
-app.get('/live', async (req, res) => {
-  try {
-    const [competitorsRes, attemptsRes, assistRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Competitors!B2:H' }),
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Atempts!C2:AZ' }),
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: 'Assist Tables!B2:BA2' }),
-    ]);
-
-    const competitorsRows = competitorsRes.data.values || [];
-    const attemptsRows = attemptsRes.data.values || [];
-    const assistScores = assistRes.data.values?.[0] || [];
-
-    const normalize = str => (str || '').toString().trim();
-
-    const competitors = competitorsRows.map(row => {
-      const name = normalize(row[0]);
-      const club = normalize(row[6]);
-      const category = normalize(row[4]);
-      const attemptsRow = attemptsRows.find(r => normalize(r[0]) === name) || [];
-      const scores = attemptsRow.slice(1).map((val, i) => {
-        const at = parseInt(val);
-        const base = parseInt(assistScores[i]);
-        if (isNaN(at) || isNaN(base)) return 0;
-        return Math.max(0, base - (at - 1) * 10);
-      });
-      const top = scores.sort((a, b) => b - a).slice(0, 7);
-      const total = top.reduce((sum, v) => sum + v, 0);
-      return { name, club, category, score: total };
-    });
-
-    const grouped = {};
-    competitors.forEach(c => {
-      grouped[c.category] = grouped[c.category] || [];
-      grouped[c.category].push(c);
-    });
-    Object.values(grouped).forEach(arr => arr.sort((a, b) => b.score - a.score));
-
-    res.json(grouped);
-  } catch (err) {
-    console.error('❌ שגיאה בנתיב /live:', err.message);
-    res.status(500).json({ error: 'שגיאה בחישוב LIVE' });
-  }
-});
-
-app.get('/personal/:name', async (req, res) => {
-  const name = decodeURIComponent(req.params.name);
-  console.log("📊 personal route activated for", name);
-
-  try {
-    const [assistRes, allAttemptsRes] = await Promise.all([
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SHEET_ID,
-        range: 'Assist Tables!B2:BA2',
-      }),
-      sheets.spreadsheets.values.get({
-        spreadsheetId: SHEET_ID,
-        range: 'AllAttempts!A2:C',
-      }),
-    ]);
-
-
-
-    const rows = response.data.values || [];
-
-const match = rows.find(row => (row[6] || '').toString().trim() === id.trim());
-
-if (match) {
-  const name = match[0];
-  
-      res.json({ name });
-
-// ✅ חיפוש לפי תעודת זהות
-app.get('/search-id/:id', async (req, res) => {
-  const id = req.params.id.trim();
-  try {
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SHEET_ID,
-      range: 'Competitors!B2:G',
-    });
-
-    const rows = response.data.values || [];
-    const match = rows.find(row => (row[5] || '').toString().trim() === id);
-
-    if (match) {
-      const name = match[0];
-      res.json({ name });
-    } else {
-      res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
-    }
-  } catch (err) {
-    console.error('❌ שגיאה בנתיב /search-id:', err.message);
-    res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
-  }
+// ✅ בדיקת סטטוס השרת
+app.get('/', (req, res) => {
+  res.send('🟢 Backend server is running');
 });
 
 // ✅ שליפת תוצאות אישיות לפי שם מתחרה
@@ -532,7 +438,31 @@ app.get('/personal/:name', async (req, res) => {
   }
 });
 
-// ✅ קריאת UID אחרון ממחשב
+// ✅ חיפוש לפי תעודת זהות
+app.get('/search-id/:id', async (req, res) => {
+  const id = req.params.id.trim();
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: 'Competitors!B2:G',
+    });
+
+    const rows = response.data.values || [];
+    const match = rows.find(row => (row[5] || '').toString().trim() === id);
+
+    if (match) {
+      const name = match[0];
+      res.json({ name });
+    } else {
+      res.status(404).json({ error: 'לא נמצא מתחרה עם תעודת זהות זו' });
+    }
+  } catch (err) {
+    console.error('❌ שגיאה בנתיב /search-id:', err.message);
+    res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
+  }
+});
+
+// ✅ קריאת UID אחרון מהמחשב
 app.get('/get-latest-uid', (req, res) => {
   try {
     const uid = fs.readFileSync('latest_uid.txt', 'utf-8').trim();
@@ -612,11 +542,6 @@ app.post('/assign-nfc', async (req, res) => {
     console.error('❌ שגיאה בשיוך UID:', err.message);
     res.status(500).json({ error: 'שגיאה בשיוך UID' });
   }
-});
-
-// ✅ בדיקת סטטוס השרת
-app.get('/', (req, res) => {
-  res.send('🟢 Backend server is running');
 });
 
 // ✅ הפעלת השרת
