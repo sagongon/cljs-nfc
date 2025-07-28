@@ -19,9 +19,6 @@ process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
-let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
-
 if (!ACTIVE_SPREADSHEET_ID) {
   console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
   process.exit(1);
@@ -30,11 +27,18 @@ if (!ACTIVE_SPREADSHEET_ID) {
 app.use(cors());
 app.use(express.json());
 
-// 🟡 טעינת ID דינמי עם ברירת מחדל
-let SHEET_ID = process.env.ACTIVE_SPREADSHEET_ID || process.env.DEFAULT_SPREADSHEET_ID;
-if (!SHEET_ID) {
-  console.error('❌ לא הוגדר Spreadsheet ID - יש להכניס ACTIVE או DEFAULT בסביבת העבודה');
+// ✅ טעינת ID דינמי עם אפשרות לשינוי בזמן ריצה
+let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
+let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
+
+if (!ACTIVE_SPREADSHEET_ID) {
+  console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
   process.exit(1);
+}
+
+// פונקציה שתשתמש תמיד במזהה הנוכחי
+function getActiveSheetId() {
+  return ACTIVE_SPREADSHEET_ID;
 }
 
 let credentials;
