@@ -594,11 +594,10 @@ app.post('/assign-nfc', async (req, res) => {
 // ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
+  const ADMIN_CODE = process.env.ADMIN_CODE;
 
-  const ADMIN_CODE = process.env.ADMIN_CODE || '1234'; // ברירת מחדל אם לא הוגדר
-
-  if (adminCode !== ADMIN_CODE) {
-    return res.status(403).json({ error: 'קוד מנהל שגוי' });
+  if (!ADMIN_CODE || adminCode !== ADMIN_CODE) {
+    return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
   }
 
   if (!newSheetId || typeof newSheetId !== 'string') {
@@ -609,7 +608,24 @@ app.post('/set-active-sheet', async (req, res) => {
   ACTIVE_SPREADSHEET_ID = newSheetId;
   console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
 
-  return res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
+  // ✍️ שמירה לקובץ .env
+  try {
+    const envPath = path.join(__dirname, '.env');
+    let envContent = fs.readFileSync(envPath, 'utf8');
+
+    if (envContent.includes('ACTIVE_SPREADSHEET_ID=')) {
+      envContent = envContent.replace(/ACTIVE_SPREADSHEET_ID=.*/g, `ACTIVE_SPREADSHEET_ID=${newSheetId}`);
+    } else {
+      envContent += `\nACTIVE_SPREADSHEET_ID=${newSheetId}`;
+    }
+
+    fs.writeFileSync(envPath, envContent);
+    console.log(`✅ נשמר לקובץ .env`);
+  } catch (err) {
+    console.error('❌ שגיאה בשמירה לקובץ .env:', err.message);
+  }
+
+  return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
 });
 
 
