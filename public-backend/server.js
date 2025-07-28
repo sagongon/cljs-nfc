@@ -34,17 +34,30 @@ function getActiveSheetId() {
   return ACTIVE_SPREADSHEET_ID;
 }
 
-app.use(cors());
 app.use(express.json());
 
+// ✅ הגדרות CORS מלאות עם טיפול ב־OPTIONS
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "https://cljs-nfc-ashy.vercel.app"); // אפשר גם "*"
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
+// ✅ הגדרת אישור גישה ל-Google Sheets לפי הסביבה
 let credentials;
 let CREDENTIALS_PATH;
 
 if (process.env.GOOGLE_CREDENTIALS_JSON) {
-  // מצב ענן
+  // מצב ענן (כמו Render)
   credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
 } else {
-  // מצב מקומי
+  // מצב מקומי (כמו אצלך ב־localhost)
   CREDENTIALS_PATH = process.env.GOOGLE_SA_PATH;
   credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
 }

@@ -27,10 +27,20 @@ if (!ACTIVE_SPREADSHEET_ID) {
   process.exit(1);
 }
 
-app.use(cors());
 app.use(express.json());
 
-// פונקציה שתשתמש תמיד במזהה הנוכחי
+// ✅ הגדרות CORS שיאפשרו קריאות מה-frontend שלך ב-Vercel
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "https://cljs-nfc-ashy.vercel.app");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204); // מענה מהיר לבקשות OPTIONS
+  }
+  next();
+});
+
+// ✅ פונקציה שתשתמש תמיד במזהה הנוכחי
 function getActiveSheetId() {
   return ACTIVE_SPREADSHEET_ID;
 }
