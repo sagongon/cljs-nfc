@@ -8,7 +8,46 @@ import { fileURLToPath } from 'url';
 import dns from 'dns';
 import dotenv from 'dotenv';
 
+
+// ✅ הגדרות קבועות לטעינת מזהה הגיליון הפעיל מהדיסק
+const ACTIVE_SHEET_PATH = '/mnt/data/activeSheet.json';
+const defaultSheetId = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
+
+try {
+  if (!fs.existsSync(ACTIVE_SHEET_PATH)) {
+    fs.writeFileSync(
+      ACTIVE_SHEET_PATH,
+      JSON.stringify({ activeSpreadsheetId: defaultSheetId }, null, 2),
+      'utf8'
+    );
+    console.log('✅ נוצר קובץ activeSheet.json בדיסק');
+  }
+} catch (err) {
+  console.error('❌ שגיאה ביצירת activeSheet.json בדיסק:', err.message);
+}
+
+let ACTIVE_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID || defaultSheetId;
+
+try {
+  const saved = JSON.parse(fs.readFileSync(ACTIVE_SHEET_PATH, 'utf8'));
+  if (saved.activeSpreadsheetId) {
+    ACTIVE_SPREADSHEET_ID = saved.activeSpreadsheetId;
+    console.log('📄 ACTIVE_SPREADSHEET_ID נטען מקובץ:', ACTIVE_SPREADSHEET_ID);
+  }
+} catch (err) {
+  console.error('❌ שגיאה בקריאת activeSheet.json:', err.message);
+}
+
 dotenv.config();
+
+// ✅ טען את מזהה הגיליון מ־.env
+const DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
+
+if (!DEFAULT_SPREADSHEET_ID) {
+  console.error('❌ לא הוגדר DEFAULT_SPREADSHEET_ID בקובץ .env');
+  process.exit(1);
+}
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,24 +71,6 @@ app.use((req, res, next) => {
 
 const PORT = process.env.PORT || 4000;
 
-let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
-let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
-
-// ✅ זה הנתיב הנכון לדיסק מתמשך ב־Render
-const ACTIVE_SHEET_FILE = '/mnt/data/activeSheet.json';
-
-if (fs.existsSync(ACTIVE_SHEET_FILE)) {
-  try {
-    const fileData = fs.readFileSync(ACTIVE_SHEET_FILE, 'utf8');
-    const parsed = JSON.parse(fileData);
-    if (parsed.activeSpreadsheetId) {
-      ACTIVE_SPREADSHEET_ID = parsed.activeSpreadsheetId;
-      console.log('📄 ACTIVE_SPREADSHEET_ID נטען מהקובץ:', ACTIVE_SPREADSHEET_ID);
-    }
-  } catch (err) {
-    console.warn('⚠️ שגיאה בקריאת הקובץ activeSheet.json:', err.message);
-  }
-}
 
 if (!ACTIVE_SPREADSHEET_ID) {
   console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
