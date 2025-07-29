@@ -292,7 +292,7 @@ setTimeout(() => {
     fetch(`${SERVER_URL}/correct`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: selectedName, route: routeNumber, judgeCode: adminCode })
+      body: JSON.stringify({ name: selectedName, route: routeNumber, judgePassword: adminCode })
     })
       .then(res => res.json())
       .then(data => {
