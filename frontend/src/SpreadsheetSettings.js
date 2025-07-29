@@ -6,26 +6,16 @@ const SERVER_URL =
     : 'https://personalliveresults.onrender.com';
 
 export default function SpreadsheetSettings() {
-  const [adminCode, setAdminCode] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [sheetId, setSheetId] = useState('');
-  const [authorized, setAuthorized] = useState(false);
   const [message, setMessage] = useState('');
-
-  const handleAuth = () => {
-    if (adminCode === '007') {
-      setAuthorized(true);
-      setMessage('');
-    } else {
-      setMessage('❌ קוד מנהל לא תקין');
-    }
-  };
 
   const handleSubmit = async () => {
     try {
       const res = await fetch(`${SERVER_URL}/set-active-sheet`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminCode, spreadsheetId: sheetId }),
+        body: JSON.stringify({ adminPassword, newSheetId: sheetId }),
       });
 
       const data = await res.json();
@@ -42,29 +32,21 @@ export default function SpreadsheetSettings() {
   return (
     <div className="settings-container">
       <h2>הגדרות גיליון</h2>
-      {!authorized ? (
-        <>
-          <input
-            type="password"
-            placeholder="הזן קוד מנהל"
-            value={adminCode}
-            onChange={(e) => setAdminCode(e.target.value)}
-            className="admin-input"
-          />
-          <button onClick={handleAuth}>אימות</button>
-        </>
-      ) : (
-        <>
-          <input
-            type="text"
-            placeholder="Spreadsheet ID החדש"
-            value={sheetId}
-            onChange={(e) => setSheetId(e.target.value)}
-            className="sheet-id-input"
-          />
-          <button onClick={handleSubmit}>שמור גיליון חדש</button>
-        </>
-      )}
+      <input
+        type="password"
+        placeholder="קוד מנהל"
+        value={adminPassword}
+        onChange={(e) => setAdminPassword(e.target.value)}
+        className="admin-input"
+      />
+      <input
+        type="text"
+        placeholder="Spreadsheet ID החדש"
+        value={sheetId}
+        onChange={(e) => setSheetId(e.target.value)}
+        className="sheet-id-input"
+      />
+      <button onClick={handleSubmit}>שמור גיליון חדש</button>
       {message && <p>{message}</p>}
     </div>
   );
