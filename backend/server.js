@@ -14,6 +14,12 @@ const ACTIVE_SHEET_PATH = '/mnt/data/activeSheet.json';
 const defaultSheetId = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
 
 try {
+  // ✅ ודא שהתיקייה קיימת
+  const dirPath = path.dirname(ACTIVE_SHEET_PATH);
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+
   if (!fs.existsSync(ACTIVE_SHEET_PATH)) {
     fs.writeFileSync(
       ACTIVE_SHEET_PATH,
@@ -24,18 +30,6 @@ try {
   }
 } catch (err) {
   console.error('❌ שגיאה ביצירת activeSheet.json בדיסק:', err.message);
-}
-
-let ACTIVE_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID || defaultSheetId;
-
-try {
-  const saved = JSON.parse(fs.readFileSync(ACTIVE_SHEET_PATH, 'utf8'));
-  if (saved.activeSpreadsheetId) {
-    ACTIVE_SPREADSHEET_ID = saved.activeSpreadsheetId;
-    console.log('📄 ACTIVE_SPREADSHEET_ID נטען מקובץ:', ACTIVE_SPREADSHEET_ID);
-  }
-} catch (err) {
-  console.error('❌ שגיאה בקריאת activeSheet.json:', err.message);
 }
 
 dotenv.config();
