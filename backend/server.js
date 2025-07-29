@@ -610,10 +610,12 @@ app.post('/update-sheet-id', (req, res) => {
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
 
+  // ודא שהקוד הסודי מוגדר בקובץ ENV
   if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
     return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
   }
 
+  // בדוק את תקינות מזהה הגיליון
   if (!newSheetId || typeof newSheetId !== 'string') {
     return res.status(400).json({ error: 'ID גיליון לא תקין' });
   }
@@ -621,26 +623,8 @@ app.post('/set-active-sheet', async (req, res) => {
   // ✅ עדכון המזהה הפעיל בזמן ריצה
   ACTIVE_SPREADSHEET_ID = newSheetId;
   console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
-  res.json({ message: 'עודכן מזהה הגיליון בהצלחה' });
-});
 
-  // ✍️ שמירה לקובץ .env
-  try {
-    const envPath = path.join(__dirname, '.env');
-    let envContent = fs.readFileSync(envPath, 'utf8');
-
-    if (envContent.includes('ACTIVE_SPREADSHEET_ID=')) {
-      envContent = envContent.replace(/ACTIVE_SPREADSHEET_ID=.*/g, `ACTIVE_SPREADSHEET_ID=${newSheetId}`);
-    } else {
-      envContent += `\nACTIVE_SPREADSHEET_ID=${newSheetId}`;
-    }
-
-    fs.writeFileSync(envPath, envContent);
-    console.log(`✅ נשמר לקובץ .env`);
-  } catch (err) {
-    console.error('❌ שגיאה בשמירה לקובץ .env:', err.message);
-  }
-
+  // ✅ שלח תשובה ללקוח
   return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
 });
 
