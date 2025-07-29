@@ -37,6 +37,11 @@ if (!ACTIVE_SPREADSHEET_ID) {
 }
 
 app.use(express.json());
+app.options('*', cors({
+  origin: 'https://cljs-nfc-ashy.vercel.app',
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 
 
 // ✅ פונקציה שתשתמש תמיד במזהה הנוכחי
