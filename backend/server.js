@@ -638,9 +638,6 @@ app.post('/update-sheet-id', (req, res) => {
 });
 
 
-const ACTIVE_SHEET_PATH = '/mnt/data/activeSheet.json';
-const defaultSheetId = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
-
 // ✅ יצירת קובץ אם לא קיים
 if (!fs.existsSync(ACTIVE_SHEET_PATH)) {
   fs.writeFileSync(
