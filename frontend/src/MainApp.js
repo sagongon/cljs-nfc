@@ -178,23 +178,33 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   };
 
   useEffect(() => {
-    fetch(`${SERVER_URL}/refresh`)
-      .then(res => res.json())
-      .then(() => fetch(`${SERVER_URL}/live`))
-      .then(res => res.json())
-      .then(data => {
-        const cats = Object.keys(data);
-        setCategories(cats);
-        const full = [];
-        cats.forEach(cat =>
-          data[cat].forEach(comp =>
-            full.push({ name: comp.name, category: cat })
-          )
-        );
-        setCompetitorsFull(full);
-      })
-      .catch(err => console.error('❌ שגיאה בשחזור או בשליפת מתחרים:', err));
-  }, []);
+  fetch(`${SERVER_URL}/refresh`)
+    .then(res => res.json())
+    .then(() => fetch(`${SERVER_URL}/live`))
+    .then(res => res.json())
+    .then(data => {
+      const cats = Object.keys(data);
+      setCategories(cats);
+      const full = [];
+      cats.forEach(cat =>
+        data[cat].forEach(comp =>
+          full.push({ name: comp.name, category: cat })
+        )
+      );
+      setCompetitorsFull(full);
+      localStorage.setItem('cachedCompetitors', JSON.stringify(full));
+      localStorage.setItem('cachedCategories', JSON.stringify(cats));
+    })
+    .catch(err => {
+      console.error('❌ שגיאה בשליפת מתחרים – מנסה מהזיכרון:', err);
+      const cached = localStorage.getItem('cachedCompetitors');
+      const cats = localStorage.getItem('cachedCategories');
+      if (cached && cats) {
+        setCompetitorsFull(JSON.parse(cached));
+        setCategories(JSON.parse(cats));
+      }
+    });
+}, []);
 
   useEffect(() => {
     let names = competitorsFull

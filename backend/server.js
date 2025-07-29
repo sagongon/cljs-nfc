@@ -13,6 +13,9 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const fs = require('fs');
+const path = require('path');
+
 
 dns.setDefaultResultOrder('ipv4first');
 process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
@@ -36,6 +39,16 @@ const PORT = process.env.PORT || 4000;
 
 let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
 let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
+
+const ACTIVE_SHEET_FILE = path.join(__dirname, 'active_sheet_id.txt');
+
+if (fs.existsSync(ACTIVE_SHEET_FILE)) {
+  const fileValue = fs.readFileSync(ACTIVE_SHEET_FILE, 'utf8').trim();
+  if (fileValue) {
+    ACTIVE_SPREADSHEET_ID = fileValue;
+    console.log('📄 ACTIVE_SPREADSHEET_ID נטען מקובץ:', ACTIVE_SPREADSHEET_ID);
+  }
+}
 
 if (!ACTIVE_SPREADSHEET_ID) {
   console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
@@ -613,6 +626,9 @@ app.post('/set-active-sheet', async (req, res) => {
 
   console.log('🔍 התקבל adminCode:', adminCode ?? '[ריק]');
   console.log('🧠 ADMIN_PASSWORD מתוך ENV:', ADMIN_PASSWORD ?? '[ריק]');
+
+fs.writeFileSync(ACTIVE_SHEET_FILE, newSheetId, 'utf8');
+console.log('💾 ACTIVE_SPREADSHEET_ID נשמר לקובץ:', newSheetId);
 
   // ודא שהקוד הסודי מוגדר בקובץ ENV
   if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
