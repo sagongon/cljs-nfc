@@ -1,4 +1,3 @@
-// test
 
 import React, { useEffect, useState } from 'react';
 import './App.css';
@@ -211,7 +210,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
       setAdminCode('');
     } else {
       setHistory([]);
-      setLocked(true);
+      setLocked(false);
     }
   }, [selectedName, routeNumber]);
 
