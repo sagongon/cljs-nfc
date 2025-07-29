@@ -27,6 +27,9 @@ app.use(cors({
   credentials: true
 }));
 
+app.use(express.json());
+
+
 app.use((req, res, next) => {
   console.log(`📥 בקשה מ: ${req.headers.origin} לנתיב ${req.url}`);
   next();
@@ -43,7 +46,6 @@ if (!ACTIVE_SPREADSHEET_ID) {
   process.exit(1);
 }
 
-app.use(express.json());
 
 
 // ✅ פונקציה שתשתמש תמיד במזהה הנוכחי
