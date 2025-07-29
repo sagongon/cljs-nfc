@@ -602,9 +602,9 @@ app.post('/update-sheet-id', (req, res) => {
 /// ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
-  const ADMIN_CODE = process.env.ADMIN_CODE;
+  const ADMIN_CODE = process.env.ADMIN_PASSWORD;
 
-  if (!ADMIN_CODE || adminCode !== ADMIN_CODE) {
+  if (!ADMIN_CODE || adminCode !== ADMIN_PASSWORD) {
     return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
   }
 
