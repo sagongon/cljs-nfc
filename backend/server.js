@@ -20,10 +20,16 @@ process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
 const app = express();
 
 app.use(cors({
-  origin: 'https://cljs-nfc-ashy.vercel.app',
-  methods: ['GET', 'POST'],
+  origin: ['https://cljs-nfc-ashy.vercel.app'], // מותר גם מערך
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+
+app.use((req, res, next) => {
+  console.log(`📥 בקשה מ: ${req.headers.origin} לנתיב ${req.url}`);
+  next();
+});
 
 
 const PORT = process.env.PORT || 4000;
@@ -37,11 +43,6 @@ if (!ACTIVE_SPREADSHEET_ID) {
 }
 
 app.use(express.json());
-app.options('*', cors({
-  origin: 'https://cljs-nfc-ashy.vercel.app',
-  methods: ['GET', 'POST'],
-  credentials: true
-}));
 
 
 // ✅ פונקציה שתשתמש תמיד במזהה הנוכחי
