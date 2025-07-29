@@ -626,21 +626,18 @@ app.post('/update-sheet-id', (req, res) => {
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
 
-  // ודא שהקוד הסודי מוגדר בקובץ ENV
   if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
     return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
   }
 
-  // בדוק את תקינות מזהה הגיליון
   if (!newSheetId || typeof newSheetId !== 'string') {
     return res.status(400).json({ error: 'ID גיליון לא תקין' });
   }
 
-  // ✅ עדכון המזהה הפעיל בזמן ריצה
+  // עדכון מזהה
   ACTIVE_SPREADSHEET_ID = newSheetId;
   console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
 
-  // ✅ שלח תשובה ללקוח
   return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
 });
 
