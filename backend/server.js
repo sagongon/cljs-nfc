@@ -609,6 +609,8 @@ app.post('/update-sheet-id', (req, res) => {
 // ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
+  console.log('🔍 התקבל adminCode:', adminCode);
+  console.log('🧠 ADMIN_PASSWORD מתוך ENV:', process.env.ADMIN_PASSWORD);
 
   // ודא שהקוד הסודי מוגדר בקובץ ENV
   if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
