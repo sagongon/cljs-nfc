@@ -616,79 +616,63 @@ app.post('/update-sheet-id', (req, res) => {
   res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
 });
 
-// ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
-app.post('/set-active-sheet', async (req, res) => {
-  const { adminCode, newSheetId } = req.body;
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
-  console.log('🔍 התקבל adminCode:', adminCode ?? '[ריק]');
-  console.log('🧠 ADMIN_PASSWORD מתוך ENV:', ADMIN_PASSWORD ?? '[ריק]');
-
-  // ודא שהקוד הסודי מוגדר בקובץ ENV
-  if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
-    console.log('❌ קוד מנהל שגוי או לא מוגדר');
-    return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
-  }
-
-  // בדוק את תקינות מזהה הגיליון
-  if (!newSheetId || typeof newSheetId !== 'string') {
-    console.log('❌ ID גיליון לא תקין');
-    return res.status(400).json({ error: 'ID גיליון לא תקין' });
-  }
-
-  // ✅ עדכון המזהה הפעיל בזמן ריצה
-  ACTIVE_SPREADSHEET_ID = newSheetId;
-  console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
-
-  // ✅ שמירה לקובץ JSON מתמיד
-  try {
-    const sheetPath = path.join(__dirname, 'activeSheet.json');
-    fs.writeFileSync(
-      sheetPath,
-      JSON.stringify({ activeSpreadsheetId: newSheetId }, null, 2),
-      'utf8'
-    );
-    console.log('💾 מזהה הגיליון נשמר לקובץ activeSheet.json');
-  } catch (err) {
-    console.error('❌ שגיאה בכתיבת הקובץ activeSheet.json:', err.message);
-    return res.status(500).json({ error: 'שמירת הגיליון נכשלה' });
-  }
-
-  return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
-});
-
-  // ✅ עדכון המזהה הפעיל בזמן ריצה
-  ACTIVE_SPREADSHEET_ID = newSheetId;
-  console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
-
-  // ✅ שלח תשובה ללקוח
-  return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
-});
-
-import fs from 'fs';
-import path from 'path';
 
 const ACTIVE_SHEET_PATH = '/mnt/data/activeSheet.json';
 const defaultSheetId = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
+let ACTIVE_SPREADSHEET_ID = defaultSheetId;
 
+// ✅ יצירת קובץ אם לא קיים
 if (!fs.existsSync(ACTIVE_SHEET_PATH)) {
   fs.writeFileSync(
     ACTIVE_SHEET_PATH,
     JSON.stringify({ activeSpreadsheetId: defaultSheetId }, null, 2)
   );
   console.log('✅ נוצר קובץ activeSheet.json בדיסק');
+} else {
+  const saved = JSON.parse(fs.readFileSync(ACTIVE_SHEET_PATH, 'utf8'));
+  if (saved?.activeSpreadsheetId) {
+    ACTIVE_SPREADSHEET_ID = saved.activeSpreadsheetId;
+    console.log('📂 נטען מזהה גיליון מקובץ:', ACTIVE_SPREADSHEET_ID);
+  }
 }
 
+// ✅ עדכון מזהה גיליון דרך שופט ראשי
+app.post('/set-active-sheet', async (req, res) => {
+  const { adminCode, newSheetId } = req.body;
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
+  console.log('🔍 adminCode:', adminCode ?? '[ריק]');
+  console.log('🧠 ADMIN_PASSWORD:', ADMIN_PASSWORD ?? '[ריק]');
 
-app.listen(PORT, async () => {
-  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
-  await restoreAttemptsMemory();
+  if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
+    console.log('❌ קוד מנהל שגוי');
+    return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
+  }
+
+  if (!newSheetId || typeof newSheetId !== 'string') {
+    console.log('❌ ID גיליון לא תקין');
+    return res.status(400).json({ error: 'ID גיליון לא תקין' });
+  }
+
+  ACTIVE_SPREADSHEET_ID = newSheetId;
+  console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
+
+  try {
+    fs.writeFileSync(
+      ACTIVE_SHEET_PATH,
+      JSON.stringify({ activeSpreadsheetId: newSheetId }, null, 2),
+      'utf8'
+    );
+    console.log('💾 נשמר לקובץ activeSheet.json');
+  } catch (err) {
+    console.error('❌ שגיאה בכתיבה:', err.message);
+    return res.status(500).json({ error: 'שמירת הגיליון נכשלה' });
+  }
+
+  return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
 });
 
-
-// ✅ server.js – כולל מניעת שיוך כפול של UID או שם
-
+// ✅ מניעת שיוך כפול של UID או שם
 app.post('/assign-nfc', async (req, res) => {
   await ensureNFCMapSheet();
   const { name, uid } = req.body;
@@ -697,13 +681,11 @@ app.post('/assign-nfc', async (req, res) => {
   try {
     const range = 'NFCMap!A2:B';
     const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range,
     });
 
     const rows = result.data.values || [];
-
     const uidRow = rows.find(row => row[0] === uid);
     const nameRow = rows.find(row => row[1] === name);
 
@@ -720,13 +702,10 @@ app.post('/assign-nfc', async (req, res) => {
     }
 
     await sheets.spreadsheets.values.append({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'NFCMap!A:B',
       valueInputOption: 'USER_ENTERED',
-      resource: {
-        values: [[uid, name]],
-      },
+      resource: { values: [[uid, name]] },
     });
 
     console.log(`✅ שויך UID ${uid} למתחרה ${name}`);
@@ -735,4 +714,10 @@ app.post('/assign-nfc', async (req, res) => {
     console.error('❌ שגיאה בשיוך UID:', err.message);
     res.status(500).json({ error: 'שגיאה בשיוך UID' });
   }
+});
+
+// ✅ הפעלת השרת
+app.listen(PORT, async () => {
+  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
+  await restoreAttemptsMemory();
 });
