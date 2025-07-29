@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import dns from 'dns';
 import dotenv from 'dotenv';
 
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,6 +18,14 @@ dns.setDefaultResultOrder('ipv4first');
 process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
 
 const app = express();
+
+app.use(cors({
+  origin: 'https://cljs-nfc-ashy.vercel.app',
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
+
+
 const PORT = process.env.PORT || 4000;
 
 let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
