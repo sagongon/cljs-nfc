@@ -257,7 +257,7 @@ app.get('/history', async (req, res) => {
 
 app.post('/correct', async (req, res) => {
   const { name, route, adminCode } = req.body;
-  if (adminCode !== ADMIN_CODE) return res.status(403).json({ error: 'קוד שגוי' });
+  if (adminCode !== process.env.JUDGE_PASSWORD) return res.status(403).json({ error: 'קוד שגוי' });
 
   const routeNum = parseInt(route, 10);
   if (attemptsMemory[name]) attemptsMemory[name][routeNum] = [];
