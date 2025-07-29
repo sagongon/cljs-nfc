@@ -64,7 +64,9 @@ const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const auth = new google.auth.GoogleAuth({ credentials, scopes: SCOPES });
 const sheets = google.sheets({ version: 'v4', auth });
 
-const ADMIN_CODE = process.env.ADMIN_PASSWORD;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const JUDGE_PASSWORD = process.env.JUDGE_PASSWORD;
+
 const attemptsMemory = {};
 const queues = {}; // תורים לפי תחנה
 
@@ -604,12 +606,11 @@ app.post('/update-sheet-id', (req, res) => {
   res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
 });
 
-/// ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
+// ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
-  const ADMIN_CODE = process.env.ADMIN_PASSWORD;
 
-  if (!ADMIN_CODE || adminCode !== ADMIN_PASSWORD) {
+  if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
     return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
   }
 
@@ -620,6 +621,8 @@ app.post('/set-active-sheet', async (req, res) => {
   // ✅ עדכון המזהה הפעיל בזמן ריצה
   ACTIVE_SPREADSHEET_ID = newSheetId;
   console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
+  res.json({ message: 'עודכן מזהה הגיליון בהצלחה' });
+});
 
   // ✍️ שמירה לקובץ .env
   try {
