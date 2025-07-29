@@ -27,6 +27,8 @@ app.use(cors({
   credentials: true
 }));
 
+console.log('✅ CORS מוגדר');
+
 app.use(express.json());
 
 
