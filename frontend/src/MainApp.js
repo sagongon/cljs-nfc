@@ -25,6 +25,8 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   const [pendingResult, setPendingResult] = useState(null);
   const [warningMsg, setWarningMsg] = useState('');
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
 
   useEffect(() => {
     setSelectedCategories([]);
@@ -211,6 +213,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
     } else {
       setHistory([]);
       setLocked(false);
+      setIsLoadingHistory(false);
     }
   }, [selectedName, routeNumber]);
 
@@ -227,9 +230,11 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
         .filter(a => a.name === name && +a.route === +route)
         .forEach(a => (a.result === 'RESET' ? (localH.length = 0) : localH.push(a.result)));
       setHistory(localH);
-      setLocked(localH.includes('T') || localH.length >= 5);
-    }
-  };
+     setLocked(localH.includes('T') || localH.length >= 5);
+  } finally {
+    setIsLoadingHistory(false); // ← טעינה הסתיימה בכל מקרה
+  }
+};
 
   const requestMark = res => {
   confirmMark(res);
@@ -415,9 +420,10 @@ setTimeout(() => {
               </div>
             )}
 
-            {selectedName && routeNumber && (
-              <p>היסטוריה: {history.length ? history.join(', ') : 'אין'} {locked && '🔒 נעול'}</p>
-            )}
+           {selectedName && routeNumber && !isLoadingHistory && (
+  <p>היסטוריה: {history.length ? history.join(', ') : 'אין'} {locked && '🔒 נעול'}</p>
+)}
+
 
             <hr />
             <h3>🔧 ממשק שופט ראשי</h3>
