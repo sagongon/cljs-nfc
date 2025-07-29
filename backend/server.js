@@ -58,7 +58,7 @@ const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const auth = new google.auth.GoogleAuth({ credentials, scopes: SCOPES });
 const sheets = google.sheets({ version: 'v4', auth });
 
-const ADMIN_CODE = '007';
+const ADMIN_CODE = process.env.ADMIN_PASSWORD;
 const attemptsMemory = {};
 const queues = {}; // תורים לפי תחנה
 
