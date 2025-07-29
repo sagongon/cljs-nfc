@@ -32,5 +32,9 @@ yarn-error.log*
 # קבצי סביבת הרצה של vercel
 .vercel
 
+echo "activeSheet.json" >> .gitignore
+echo ".env" >> .gitignore
+
+
 # במידת הצורך תוכל להוסיף קובצי סוד ספציפיים ידנית
 # אל תמנע את כל קובצי ה־.env אם אתה צריך אותם בפרויקט
