@@ -8,51 +8,12 @@ import { fileURLToPath } from 'url';
 import dns from 'dns';
 import dotenv from 'dotenv';
 
+
 dotenv.config();
-
-// ✅ טען את מזהה הגיליון מ־.env
-const DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
-if (!DEFAULT_SPREADSHEET_ID) {
-  console.error('❌ לא הוגדר DEFAULT_SPREADSHEET_ID בקובץ .env');
-  process.exit(1);
-}
-
-// ✅ הגדרות קבועות לטעינת מזהה הגיליון הפעיל מהדיסק
-const ACTIVE_SHEET_PATH = '/mnt/data/activeSheet.json';
-
-// ✅ ודא שהתיקייה קיימת אם מותר (למשל ב־Render זה עשוי להיכשל)
-try {
-  const dirPath = path.dirname(ACTIVE_SHEET_PATH);
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-
-  if (!fs.existsSync(ACTIVE_SHEET_PATH)) {
-    fs.writeFileSync(
-      ACTIVE_SHEET_PATH,
-      JSON.stringify({ activeSpreadsheetId: DEFAULT_SPREADSHEET_ID }, null, 2),
-      'utf8'
-    );
-    console.log('✅ נוצר קובץ activeSheet.json בדיסק');
-  }
-} catch (err) {
-  console.error('❌ שגיאה ביצירת activeSheet.json בדיסק:', err.message);
-}
-
-// ✅ טען את מזהה הגיליון הפעיל מהקובץ
-let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
-try {
-  const saved = JSON.parse(fs.readFileSync(ACTIVE_SHEET_PATH, 'utf8'));
-  if (saved.activeSpreadsheetId) {
-    ACTIVE_SPREADSHEET_ID = saved.activeSpreadsheetId;
-    console.log('📄 ACTIVE_SPREADSHEET_ID נטען מקובץ:', ACTIVE_SPREADSHEET_ID);
-  }
-} catch (err) {
-  console.error('❌ שגיאה בקריאת activeSheet.json:', err.message);
-}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 
 dns.setDefaultResultOrder('ipv4first');
 process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
@@ -71,7 +32,26 @@ app.use((req, res, next) => {
   next();
 });
 
+
 const PORT = process.env.PORT || 4000;
+
+let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
+let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
+
+const ACTIVE_SHEET_FILE = path.join(__dirname, 'activeSheet.json');
+
+if (fs.existsSync(ACTIVE_SHEET_FILE)) {
+  try {
+    const fileData = fs.readFileSync(ACTIVE_SHEET_FILE, 'utf8');
+    const parsed = JSON.parse(fileData);
+    if (parsed.activeSpreadsheetId) {
+      ACTIVE_SPREADSHEET_ID = parsed.activeSpreadsheetId;
+      console.log('📄 ACTIVE_SPREADSHEET_ID נטען מהקובץ:', ACTIVE_SPREADSHEET_ID);
+    }
+  } catch (err) {
+    console.warn('⚠️ שגיאה בקריאת הקובץ activeSheet.json:', err.message);
+  }
+}
 
 if (!ACTIVE_SPREADSHEET_ID) {
   console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
@@ -79,6 +59,7 @@ if (!ACTIVE_SPREADSHEET_ID) {
 }
 
 app.use(express.json());
+
 
 // ✅ פונקציה שתשתמש תמיד במזהה הנוכחי
 function getActiveSheetId() {
@@ -106,17 +87,20 @@ const attemptsMemory = {};
 const queues = {}; // תורים לפי תחנה
 
 async function ensureNFCMapSheet() {
-  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID });
+  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
+ });
   const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
   if (!sheetNames.includes('NFCMap')) {
     await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       requestBody: {
         requests: [{ addSheet: { properties: { title: 'NFCMap' } } }],
       },
     });
     await sheets.spreadsheets.values.update({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'NFCMap!A1:B1',
       valueInputOption: 'USER_ENTERED',
       resource: { values: [['UID', 'Name']] },
@@ -638,59 +622,66 @@ app.post('/update-sheet-id', (req, res) => {
   res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
 });
 
-
-// ✅ יצירת קובץ אם לא קיים
-if (!fs.existsSync(ACTIVE_SHEET_PATH)) {
-  fs.writeFileSync(
-    ACTIVE_SHEET_PATH,
-    JSON.stringify({ activeSpreadsheetId: defaultSheetId }, null, 2)
-  );
-  console.log('✅ נוצר קובץ activeSheet.json בדיסק');
-} else {
-  const saved = JSON.parse(fs.readFileSync(ACTIVE_SHEET_PATH, 'utf8'));
-  if (saved?.activeSpreadsheetId) {
-    ACTIVE_SPREADSHEET_ID = saved.activeSpreadsheetId;
-    console.log('📂 נטען מזהה גיליון מקובץ:', ACTIVE_SPREADSHEET_ID);
-  }
-}
-
-// ✅ עדכון מזהה גיליון דרך שופט ראשי
+// ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
   const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
-  console.log('🔍 adminCode:', adminCode ?? '[ריק]');
-  console.log('🧠 ADMIN_PASSWORD:', ADMIN_PASSWORD ?? '[ריק]');
+  console.log('🔍 התקבל adminCode:', adminCode ?? '[ריק]');
+  console.log('🧠 ADMIN_PASSWORD מתוך ENV:', ADMIN_PASSWORD ?? '[ריק]');
 
+  // ודא שהקוד הסודי מוגדר בקובץ ENV
   if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
-    console.log('❌ קוד מנהל שגוי');
+    console.log('❌ קוד מנהל שגוי או לא מוגדר');
     return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
   }
 
+  // בדוק את תקינות מזהה הגיליון
   if (!newSheetId || typeof newSheetId !== 'string') {
     console.log('❌ ID גיליון לא תקין');
     return res.status(400).json({ error: 'ID גיליון לא תקין' });
   }
 
+  // ✅ עדכון המזהה הפעיל בזמן ריצה
   ACTIVE_SPREADSHEET_ID = newSheetId;
   console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
 
+  // ✅ שמירה לקובץ JSON מתמיד
   try {
+    const sheetPath = path.join(__dirname, 'activeSheet.json');
     fs.writeFileSync(
-      ACTIVE_SHEET_PATH,
+      sheetPath,
       JSON.stringify({ activeSpreadsheetId: newSheetId }, null, 2),
       'utf8'
     );
-    console.log('💾 נשמר לקובץ activeSheet.json');
+    console.log('💾 מזהה הגיליון נשמר לקובץ activeSheet.json');
   } catch (err) {
-    console.error('❌ שגיאה בכתיבה:', err.message);
+    console.error('❌ שגיאה בכתיבת הקובץ activeSheet.json:', err.message);
     return res.status(500).json({ error: 'שמירת הגיליון נכשלה' });
   }
 
   return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
 });
 
-// ✅ מניעת שיוך כפול של UID או שם
+  // ✅ עדכון המזהה הפעיל בזמן ריצה
+  ACTIVE_SPREADSHEET_ID = newSheetId;
+  console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
+
+  // ✅ שלח תשובה ללקוח
+  return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
+});
+
+
+
+
+app.listen(PORT, async () => {
+  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
+  await restoreAttemptsMemory();
+});
+
+
+// ✅ server.js – כולל מניעת שיוך כפול של UID או שם
+
 app.post('/assign-nfc', async (req, res) => {
   await ensureNFCMapSheet();
   const { name, uid } = req.body;
@@ -699,11 +690,13 @@ app.post('/assign-nfc', async (req, res) => {
   try {
     const range = 'NFCMap!A2:B';
     const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range,
     });
 
     const rows = result.data.values || [];
+
     const uidRow = rows.find(row => row[0] === uid);
     const nameRow = rows.find(row => row[1] === name);
 
@@ -720,10 +713,13 @@ app.post('/assign-nfc', async (req, res) => {
     }
 
     await sheets.spreadsheets.values.append({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+,
       range: 'NFCMap!A:B',
       valueInputOption: 'USER_ENTERED',
-      resource: { values: [[uid, name]] },
+      resource: {
+        values: [[uid, name]],
+      },
     });
 
     console.log(`✅ שויך UID ${uid} למתחרה ${name}`);
@@ -732,10 +728,4 @@ app.post('/assign-nfc', async (req, res) => {
     console.error('❌ שגיאה בשיוך UID:', err.message);
     res.status(500).json({ error: 'שגיאה בשיוך UID' });
   }
-});
-
-// ✅ הפעלת השרת
-app.listen(PORT, async () => {
-  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
-  await restoreAttemptsMemory();
 });
