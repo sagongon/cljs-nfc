@@ -14,7 +14,6 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
 dns.setDefaultResultOrder('ipv4first');
 process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
 
@@ -37,21 +36,6 @@ const PORT = process.env.PORT || 4000;
 
 let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
 let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
-
-const ACTIVE_SHEET_FILE = path.join(__dirname, 'activeSheet.json');
-
-if (fs.existsSync(ACTIVE_SHEET_FILE)) {
-  try {
-    const fileData = fs.readFileSync(ACTIVE_SHEET_FILE, 'utf8');
-    const parsed = JSON.parse(fileData);
-    if (parsed.activeSpreadsheetId) {
-      ACTIVE_SPREADSHEET_ID = parsed.activeSpreadsheetId;
-      console.log('📄 ACTIVE_SPREADSHEET_ID נטען מהקובץ:', ACTIVE_SPREADSHEET_ID);
-    }
-  } catch (err) {
-    console.warn('⚠️ שגיאה בקריאת הקובץ activeSheet.json:', err.message);
-  }
-}
 
 if (!ACTIVE_SPREADSHEET_ID) {
   console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
@@ -625,21 +609,22 @@ app.post('/update-sheet-id', (req, res) => {
 // ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
+  console.log('🔍 התקבל adminCode:', adminCode ?? '[ריק]');
+  console.log('🧠 ADMIN_PASSWORD מתוך ENV:', ADMIN_PASSWORD ?? '[ריק]');
+
+  // ודא שהקוד הסודי מוגדר בקובץ ENV
   if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
+    console.log('❌ קוד מנהל שגוי או לא מוגדר');
     return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
   }
 
+  // בדוק את תקינות מזהה הגיליון
   if (!newSheetId || typeof newSheetId !== 'string') {
+    console.log('❌ ID גיליון לא תקין');
     return res.status(400).json({ error: 'ID גיליון לא תקין' });
   }
-
-  // עדכון מזהה
-  ACTIVE_SPREADSHEET_ID = newSheetId;
-  console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
-
-  return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
-});
 
   // ✅ עדכון המזהה הפעיל בזמן ריצה
   ACTIVE_SPREADSHEET_ID = newSheetId;
