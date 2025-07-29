@@ -8,12 +8,10 @@ import { fileURLToPath } from 'url';
 import dns from 'dns';
 import dotenv from 'dotenv';
 
-
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 
 dns.setDefaultResultOrder('ipv4first');
 process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
@@ -32,13 +30,13 @@ app.use((req, res, next) => {
   next();
 });
 
-
 const PORT = process.env.PORT || 4000;
 
 let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
 let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
 
-const ACTIVE_SHEET_FILE = path.join(__dirname, 'activeSheet.json');
+// ✅ זה הנתיב הנכון לדיסק מתמשך ב־Render
+const ACTIVE_SHEET_FILE = '/mnt/data/activeSheet.json';
 
 if (fs.existsSync(ACTIVE_SHEET_FILE)) {
   try {
@@ -59,7 +57,6 @@ if (!ACTIVE_SPREADSHEET_ID) {
 }
 
 app.use(express.json());
-
 
 // ✅ פונקציה שתשתמש תמיד במזהה הנוכחי
 function getActiveSheetId() {
@@ -87,20 +84,17 @@ const attemptsMemory = {};
 const queues = {}; // תורים לפי תחנה
 
 async function ensureNFCMapSheet() {
-  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
- });
+  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID });
   const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
   if (!sheetNames.includes('NFCMap')) {
     await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       requestBody: {
         requests: [{ addSheet: { properties: { title: 'NFCMap' } } }],
       },
     });
     await sheets.spreadsheets.values.update({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'NFCMap!A1:B1',
       valueInputOption: 'USER_ENTERED',
       resource: { values: [['UID', 'Name']] },
@@ -671,6 +665,19 @@ app.post('/set-active-sheet', async (req, res) => {
   return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
 });
 
+import fs from 'fs';
+import path from 'path';
+
+const ACTIVE_SHEET_PATH = '/mnt/data/activeSheet.json';
+const defaultSheetId = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
+
+if (!fs.existsSync(ACTIVE_SHEET_PATH)) {
+  fs.writeFileSync(
+    ACTIVE_SHEET_PATH,
+    JSON.stringify({ activeSpreadsheetId: defaultSheetId }, null, 2)
+  );
+  console.log('✅ נוצר קובץ activeSheet.json בדיסק');
+}
 
 
 
