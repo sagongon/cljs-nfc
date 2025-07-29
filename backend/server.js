@@ -609,16 +609,20 @@ app.post('/update-sheet-id', (req, res) => {
 // ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
-  console.log('🔍 התקבל adminCode:', adminCode);
-  console.log('🧠 ADMIN_PASSWORD מתוך ENV:', process.env.ADMIN_PASSWORD);
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+  console.log('🔍 התקבל adminCode:', adminCode ?? '[ריק]');
+  console.log('🧠 ADMIN_PASSWORD מתוך ENV:', ADMIN_PASSWORD ?? '[ריק]');
 
   // ודא שהקוד הסודי מוגדר בקובץ ENV
   if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
+    console.log('❌ קוד מנהל שגוי או לא מוגדר');
     return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
   }
 
   // בדוק את תקינות מזהה הגיליון
   if (!newSheetId || typeof newSheetId !== 'string') {
+    console.log('❌ ID גיליון לא תקין');
     return res.status(400).json({ error: 'ID גיליון לא תקין' });
   }
 
