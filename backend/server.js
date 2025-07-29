@@ -8,13 +8,20 @@ import { fileURLToPath } from 'url';
 import dns from 'dns';
 import dotenv from 'dotenv';
 
+dotenv.config();
+
+// ✅ טען את מזהה הגיליון מ־.env
+const DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
+if (!DEFAULT_SPREADSHEET_ID) {
+  console.error('❌ לא הוגדר DEFAULT_SPREADSHEET_ID בקובץ .env');
+  process.exit(1);
+}
 
 // ✅ הגדרות קבועות לטעינת מזהה הגיליון הפעיל מהדיסק
 const ACTIVE_SHEET_PATH = '/mnt/data/activeSheet.json';
-const defaultSheetId = '1NxvnHfiHMPtlDnbgIuOZSHprc2ND8P1ycL-t0GFfIc8';
 
+// ✅ ודא שהתיקייה קיימת אם מותר (למשל ב־Render זה עשוי להיכשל)
 try {
-  // ✅ ודא שהתיקייה קיימת
   const dirPath = path.dirname(ACTIVE_SHEET_PATH);
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
@@ -23,7 +30,7 @@ try {
   if (!fs.existsSync(ACTIVE_SHEET_PATH)) {
     fs.writeFileSync(
       ACTIVE_SHEET_PATH,
-      JSON.stringify({ activeSpreadsheetId: defaultSheetId }, null, 2),
+      JSON.stringify({ activeSpreadsheetId: DEFAULT_SPREADSHEET_ID }, null, 2),
       'utf8'
     );
     console.log('✅ נוצר קובץ activeSheet.json בדיסק');
@@ -32,16 +39,17 @@ try {
   console.error('❌ שגיאה ביצירת activeSheet.json בדיסק:', err.message);
 }
 
-dotenv.config();
-
-// ✅ טען את מזהה הגיליון מ־.env
-const DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
-
-if (!DEFAULT_SPREADSHEET_ID) {
-  console.error('❌ לא הוגדר DEFAULT_SPREADSHEET_ID בקובץ .env');
-  process.exit(1);
+// ✅ טען את מזהה הגיליון הפעיל מהקובץ
+let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
+try {
+  const saved = JSON.parse(fs.readFileSync(ACTIVE_SHEET_PATH, 'utf8'));
+  if (saved.activeSpreadsheetId) {
+    ACTIVE_SPREADSHEET_ID = saved.activeSpreadsheetId;
+    console.log('📄 ACTIVE_SPREADSHEET_ID נטען מקובץ:', ACTIVE_SPREADSHEET_ID);
+  }
+} catch (err) {
+  console.error('❌ שגיאה בקריאת activeSheet.json:', err.message);
 }
-
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,7 +72,6 @@ app.use((req, res, next) => {
 });
 
 const PORT = process.env.PORT || 4000;
-
 
 if (!ACTIVE_SPREADSHEET_ID) {
   console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
