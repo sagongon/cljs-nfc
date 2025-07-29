@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 const SERVER_URL =
   window.location.hostname === 'localhost'
     ? 'http://localhost:9000'
-    : 'https://personalliveresults.onrender.com';
+    : 'https://cljs-nfc-server.onrender.com'; // ✅ זה הראשי
 
 export default function SpreadsheetSettings() {
   const [adminPassword, setAdminPassword] = useState('');
