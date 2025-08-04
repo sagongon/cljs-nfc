@@ -70,8 +70,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
       await fetch(`${SERVER_URL}/queue/dequeue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stationId })
-      });
+        body: JSON.stringify({ stationId })      });
       await fetchNextInQueue();
     } catch (err) {
       console.error('שגיאה בהסרת מתחרה מהתור:', err);

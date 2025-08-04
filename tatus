@@ -1,0 +1,11 @@
+[33mcommit 48d67c441f9ce9ebc7eba6935e19a70aa339483a[m
+Author: SAGONGON <levinclimbing@gmail.com>
+Date:   Sat May 3 03:55:14 2025 +0300
+
+    🧹 Cleaned up root .env and updated backend configs
+
+[33mcommit 15a1eadbab96e1acc7a591f2fe8c6627fc5123b3[m
+Author: SAGONGON <levinclimbing@gmail.com>
+Date:   Sat May 3 00:38:33 2025 +0300
+
+    🚀 Clean deploy with new frontend/backend structure
