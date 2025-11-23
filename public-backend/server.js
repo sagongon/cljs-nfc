@@ -55,6 +55,11 @@ app.use((req, res, next) => {
   next();
 });
 
+// ✅ Health check endpoint - מונע השעיה ב-Render
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // ✅ הגדרת אישור גישה ל-Google Sheets לפי הסביבה
 let credentials;
 let CREDENTIALS_PATH;

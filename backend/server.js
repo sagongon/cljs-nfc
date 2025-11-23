@@ -42,6 +42,11 @@ console.log('✅ CORS מוגדר');
 
 app.use(express.json());
 
+// ✅ Health check endpoint - מונע השעיה ב-Render
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 
 app.use((req, res, next) => {
   console.log(`📥 בקשה מ: ${req.headers.origin} לנתיב ${req.url}`);
