@@ -546,21 +546,47 @@ app.get('/get-latest-uid', (req, res) => {
 // ✅ מציאת שם לפי UID
 app.get('/nfc-name/:uid', async (req, res) => {
   const uid = req.params.uid.trim();
+  console.log(`🔍 מחפש UID: "${uid}"`);
+  
   try {
     const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'NFCMap!A2:B',
     });
 
     const rows = response.data.values || [];
-    const match = rows.find(row =>
-      (row[0] || '').replace(/[:\s]/g, '').toLowerCase() === uid.replace(/[:\s]/g, '').toLowerCase()
-    );
+    console.log(`📋 נמצאו ${rows.length} שורות ב-NFCMap`);
+    
+    // נסה כמה פורמטים שונים של השוואה
+    const normalizeUid = (str) => (str || '').replace(/[:\s-]/g, '').toLowerCase();
+    const uidNormalized = normalizeUid(uid);
+    
+    const match = rows.find(row => {
+      const rowUid = row[0] || '';
+      const rowUidNormalized = normalizeUid(rowUid);
+      
+      // נסה השוואה מדויקת
+      if (rowUidNormalized === uidNormalized) {
+        console.log(`✅ נמצא התאמה: "${rowUid}" -> "${row[1]}"`);
+        return true;
+      }
+      
+      // נסה השוואה עם/בלי נקודתיים
+      const rowUidNoColon = rowUidNormalized.replace(/:/g, '');
+      const uidNoColon = uidNormalized.replace(/:/g, '');
+      if (rowUidNoColon === uidNoColon && rowUidNoColon.length > 0) {
+        console.log(`✅ נמצא התאמה (ללא נקודתיים): "${rowUid}" -> "${row[1]}"`);
+        return true;
+      }
+      
+      return false;
+    });
 
     if (match) {
       res.json({ name: match[1] });
     } else {
+      console.log(`❌ לא נמצא התאמה. UID שחיפשו: "${uid}"`);
+      console.log(`📋 UIDs שקיימים בגיליון (5 ראשונים):`, rows.slice(0, 5).map(r => r[0]));
       res.status(404).json({ error: 'לא נמצא שם עבור UID הזה' });
     }
   } catch (err) {
@@ -570,8 +596,6 @@ app.get('/nfc-name/:uid', async (req, res) => {
     } else {
       res.status(500).json({ error: 'שגיאה בחיפוש UID' });
     }
-    console.error('שגיאה בשליפת שם לפי UID:', err);
-    res.status(500).json({ error: 'שגיאה בשרת' });
   }
 });
 
