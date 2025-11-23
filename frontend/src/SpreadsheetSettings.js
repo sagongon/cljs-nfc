@@ -1,23 +1,7 @@
 import React, { useState } from 'react';
 
-// זיהוי אוטומטי של כתובת השרת לפי הסביבה
-const getServerUrl = () => {
-  // אם יש משתנה סביבה, השתמש בו
-  if (process.env.REACT_APP_API_BASE_URL) {
-    return process.env.REACT_APP_API_BASE_URL;
-  }
-  
-  // אם אנחנו בפרודקשן (Vercel), נשתמש בשרת הנכון
-  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    // נסה את השרת הראשי - אותו שרת שמשמש את MainApp
-    return 'https://cljs-nfc.onrender.com';
-  }
-  
-  // בסביבת פיתוח
-  return 'http://localhost:4000';
-};
-
-const SERVER_URL = getServerUrl();
+// שימוש באותה כתובת שרת כמו MainApp - זה מבטיח שאנחנו משתמשים באותו שרת
+const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
 
 export default function SpreadsheetSettings() {
   const [adminPassword, setAdminPassword] = useState('');
