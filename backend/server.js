@@ -1,6 +1,5 @@
 // ✅ server.js – גרסה מתקדמת עם ברירת מחדל וניהול גיליון דינמי
 import express from 'express';
-import cors from 'cors';
 import { google } from 'googleapis';
 import fs from 'fs';
 import path from 'path';
@@ -20,12 +19,24 @@ process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
 
 const app = express();
 
-app.use(cors({
-  origin: ['https://cljs-nfc-ashy.vercel.app'], // מותר גם מערך
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+// ✅ הגדרות CORS מלאות עם טיפול מפורש ב-OPTIONS
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = ['https://cljs-nfc-ashy.vercel.app'];
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 console.log('✅ CORS מוגדר');
 
