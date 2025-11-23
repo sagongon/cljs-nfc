@@ -125,35 +125,45 @@ function getExcelColumnName(n) {
 }
 
 async function ensureAllAttemptsSheet() {
-  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
- });
-  const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
-  if (!sheetNames.includes('AllAttempts')) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
-      requestBody: {
-        requests: [{ addSheet: { properties: { title: 'AllAttempts' } } }],
-      },
-    });
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
-      range: 'AllAttempts!A1:F1',
-      valueInputOption: 'USER_ENTERED',
-      resource: { values: [['שם מתחרה', 'מסלול', 'תוצאה', 'מספר ניסיון', 'תאריך', 'מספר תחנה']] },
-    });
-    console.log('🆕 נוצר גיליון AllAttempts');
+  try {
+    const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID });
+    const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
+    if (!sheetNames.includes('AllAttempts')) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: ACTIVE_SPREADSHEET_ID,
+        requestBody: {
+          requests: [{ addSheet: { properties: { title: 'AllAttempts' } } }],
+        },
+      });
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: ACTIVE_SPREADSHEET_ID,
+        range: 'AllAttempts!A1:F1',
+        valueInputOption: 'USER_ENTERED',
+        resource: { values: [['שם מתחרה', 'מסלול', 'תוצאה', 'מספר ניסיון', 'תאריך', 'מספר תחנה']] },
+      });
+      console.log('🆕 נוצר גיליון AllAttempts');
+    }
+  } catch (err) {
+    console.error('⚠️ שגיאה ב-ensureAllAttemptsSheet:', err.message);
+    if (err.code === 403) {
+      console.error('❌ אין הרשאה לגיליון. ודא שה-service account מקבל הרשאה לגיליון או שהגיליון פתוח לגישה לכל מי שיש לו את הלינק.');
+    }
+    throw err; // נזרוק את השגיאה כדי שהפונקציה הקוראת תטפל בה
   }
 }
 
 async function restoreAttemptsMemory() {
   console.log('🔄 שיחזור memory מהגיליון AllAttempts...');
-  await ensureAllAttemptsSheet();
+  try {
+    await ensureAllAttemptsSheet();
+  } catch (err) {
+    console.error('❌ לא ניתן לגשת לגיליון AllAttempts. השרת יעבוד ללא שיחזור memory:', err.message);
+    return; // נצא מהפונקציה - השרת יעבוד בלי memory
+  }
+  
   try {
     const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'AllAttempts!A2:E',
     });
     const rows = res.data.values || [];
@@ -660,7 +670,12 @@ app.post('/set-active-sheet', async (req, res) => {
 
 app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
-  await restoreAttemptsMemory();
+  try {
+    await restoreAttemptsMemory();
+    console.log('✅ שיחזור memory הושלם בהצלחה');
+  } catch (err) {
+    console.error('⚠️ שגיאה בשיחזור memory, השרת ממשיך לעבוד:', err.message);
+  }
 });
 
 
