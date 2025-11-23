@@ -38,9 +38,15 @@ app.use(express.json());
 
 // ✅ הגדרות CORS מלאות עם טיפול ב־OPTIONS
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://cljs-nfc-ashy.vercel.app"); // אפשר גם "*"
+  const origin = req.headers.origin;
+  const allowedOrigins = ['https://cljs-nfc-ashy.vercel.app'];
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Credentials", "true");
 
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
@@ -594,9 +600,13 @@ app.post('/assign-nfc', async (req, res) => {
 // ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
 app.post('/set-active-sheet', async (req, res) => {
   const { adminCode, newSheetId } = req.body;
-  const ADMIN_CODE = process.env.ADMIN_PASSWORD;
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
-  if (!ADMIN_CODE || adminCode !== ADMIN_PASSWORD) {
+  console.log('🔍 התקבל adminCode:', adminCode ?? '[ריק]');
+  console.log('🧠 ADMIN_PASSWORD מתוך ENV:', ADMIN_PASSWORD ? '[קיים]' : '[ריק]');
+
+  if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
+    console.log('❌ קוד מנהל שגוי או לא מוגדר');
     return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
   }
 
