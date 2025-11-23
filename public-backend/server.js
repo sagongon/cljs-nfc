@@ -115,35 +115,45 @@ function getExcelColumnName(n) {
 }
 
 async function ensureAllAttemptsSheet() {
-  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
- });
-  const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
-  if (!sheetNames.includes('AllAttempts')) {
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
-      requestBody: {
-        requests: [{ addSheet: { properties: { title: 'AllAttempts' } } }],
-      },
-    });
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
-      range: 'AllAttempts!A1:F1',
-      valueInputOption: 'USER_ENTERED',
-      resource: { values: [['שם מתחרה', 'מסלול', 'תוצאה', 'מספר ניסיון', 'תאריך', 'מספר תחנה']] },
-    });
-    console.log('🆕 נוצר גיליון AllAttempts');
+  try {
+    const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID });
+    const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
+    if (!sheetNames.includes('AllAttempts')) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: ACTIVE_SPREADSHEET_ID,
+        requestBody: {
+          requests: [{ addSheet: { properties: { title: 'AllAttempts' } } }],
+        },
+      });
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: ACTIVE_SPREADSHEET_ID,
+        range: 'AllAttempts!A1:F1',
+        valueInputOption: 'USER_ENTERED',
+        resource: { values: [['שם מתחרה', 'מסלול', 'תוצאה', 'מספר ניסיון', 'תאריך', 'מספר תחנה']] },
+      });
+      console.log('🆕 נוצר גיליון AllAttempts');
+    }
+  } catch (err) {
+    console.error('⚠️ שגיאה ב-ensureAllAttemptsSheet:', err.message);
+    if (err.code === 403) {
+      console.error('❌ אין הרשאה לגיליון. ודא שה-service account מקבל הרשאה לגיליון או שהגיליון פתוח לגישה לכל מי שיש לו את הלינק.');
+    }
+    throw err; // נזרוק את השגיאה כדי שהפונקציה הקוראת תטפל בה
   }
 }
 
 async function restoreAttemptsMemory() {
   console.log('🔄 שיחזור memory מהגיליון AllAttempts...');
-  await ensureAllAttemptsSheet();
+  try {
+    await ensureAllAttemptsSheet();
+  } catch (err) {
+    console.error('❌ לא ניתן לגשת לגיליון AllAttempts. השרת יעבוד ללא שיחזור memory:', err.message);
+    return; // נצא מהפונקציה - השרת יעבוד בלי memory
+  }
+  
   try {
     const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'AllAttempts!A2:E',
     });
     const rows = res.data.values || [];
@@ -430,14 +440,12 @@ app.get('/personal/:name', async (req, res) => {
   const name = req.params.name.trim();
   try {
     const assistRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'Assist Tables!B2:AZ2',
     });
 
     const allAttemptsRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'AllAttempts!A2:C',
     });
 
@@ -488,7 +496,11 @@ app.get('/personal/:name', async (req, res) => {
     res.json({ name, results, totalScore });
   } catch (err) {
     console.error('❌ שגיאה בנתיב /personal:', err.message);
-    res.status(500).json({ error: 'שגיאה בשליפת מידע אישי' });
+    if (err.code === 403) {
+      res.status(403).json({ error: 'אין הרשאה לגיליון. ודא שה-service account מקבל הרשאה לגיליון או שהגיליון פתוח לגישה לכל מי שיש לו את הלינק.' });
+    } else {
+      res.status(500).json({ error: 'שגיאה בשליפת מידע אישי' });
+    }
   }
 });
 
@@ -513,7 +525,11 @@ app.get('/search-id/:id', async (req, res) => {
     }
   } catch (err) {
     console.error('❌ שגיאה בנתיב /search-id:', err.message);
-    res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
+    if (err.code === 403) {
+      res.status(403).json({ error: 'אין הרשאה לגיליון. ודא שה-service account מקבל הרשאה לגיליון או שהגיליון פתוח לגישה לכל מי שיש לו את הלינק.' });
+    } else {
+      res.status(500).json({ error: 'שגיאה בחיפוש תעודת זהות' });
+    }
   }
 });
 
@@ -548,6 +564,12 @@ app.get('/nfc-name/:uid', async (req, res) => {
       res.status(404).json({ error: 'לא נמצא שם עבור UID הזה' });
     }
   } catch (err) {
+    console.error('❌ שגיאה בנתיב /nfc-name:', err.message);
+    if (err.code === 403) {
+      res.status(403).json({ error: 'אין הרשאה לגיליון. ודא שה-service account מקבל הרשאה לגיליון או שהגיליון פתוח לגישה לכל מי שיש לו את הלינק.' });
+    } else {
+      res.status(500).json({ error: 'שגיאה בחיפוש UID' });
+    }
     console.error('שגיאה בשליפת שם לפי UID:', err);
     res.status(500).json({ error: 'שגיאה בשרת' });
   }
@@ -647,5 +669,10 @@ app.post('/set-active-sheet', async (req, res) => {
 // ✅ הפעלת השרת
 app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
-  await restoreAttemptsMemory();
+  try {
+    await restoreAttemptsMemory();
+    console.log('✅ שיחזור memory הושלם בהצלחה');
+  } catch (err) {
+    console.error('⚠️ שגיאה בשיחזור memory, השרת ממשיך לעבוד:', err.message);
+  }
 });
