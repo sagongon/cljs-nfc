@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 
-const SERVER_URL =
-  window.location.hostname === 'localhost'
-    ? 'http://localhost:9000'
-    : 'https://cljs-nfc.onrender.com'; // ✅ זה הראשי
+const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
 
 export default function SpreadsheetSettings() {
   const [adminPassword, setAdminPassword] = useState('');
@@ -11,6 +8,12 @@ export default function SpreadsheetSettings() {
   const [message, setMessage] = useState('');
 
   const handleSubmit = async () => {
+    if (!adminPassword || !sheetId) {
+      setMessage('❌ יש למלא את כל השדות');
+      return;
+    }
+
+    setMessage('⏳ שולח...');
     try {
       const res = await fetch(`${SERVER_URL}/set-active-sheet`, {
         method: 'POST',
@@ -21,11 +24,14 @@ export default function SpreadsheetSettings() {
       const data = await res.json();
       if (res.ok) {
         setMessage(`✅ ${data.message}`);
+        setAdminPassword('');
+        setSheetId('');
       } else {
-        setMessage(`❌ ${data.error}`);
+        setMessage(`❌ ${data.error || 'שגיאה לא ידועה'}`);
       }
     } catch (err) {
-      setMessage('❌ שגיאה בשליחת הבקשה לשרת');
+      console.error('שגיאה בשליחת הבקשה:', err);
+      setMessage(`❌ שגיאה בשליחת הבקשה לשרת: ${err.message || 'לא ניתן להתחבר לשרת'}`);
     }
   };
 
