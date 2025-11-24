@@ -23,8 +23,13 @@ const app = express();
 const PORT = process.env.PORT || 10000;
 
 // 🟡 ברירת מחדל ו־ID פעיל של הגיליון
-let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
-let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
+let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID || '';
+let ACTIVE_SPREADSHEET_ID =
+  process.env.ACTIVE_SPREADSHEET_ID || DEFAULT_SPREADSHEET_ID;
+
+// ⬅️⬅️⬅️ נוסף לוג כדי לדעת מה נטען
+console.log("📄 DEFAULT_SPREADSHEET_ID:", DEFAULT_SPREADSHEET_ID || "[לא מוגדר]");
+console.log("📄 ACTIVE_SPREADSHEET_ID בתחילת טעינה:", ACTIVE_SPREADSHEET_ID || "[לא מוגדר]");
 
 if (!ACTIVE_SPREADSHEET_ID) {
   console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
@@ -80,13 +85,12 @@ if (process.env.GOOGLE_CREDENTIALS_JSON) {
 
 console.log("📧 PersonalLiveResults משתמש ב-Service Account:", credentials.client_email);
 
-
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const auth = new google.auth.GoogleAuth({ credentials, scopes: SCOPES });
 const sheets = google.sheets({ version: 'v4', auth });
 
 // קוד אדמין (לתיקונים / החלפת גיליון)
-// אפשר לשים ב-.env כ-ADMIN_PASSWORD ואם לא – ברירת מחדל 007
+// אפשר לשים ב-.env כ-ADMIN_PASSWORD ואם לא – ברירת מחדל 1412
 const ADMIN_CODE = process.env.ADMIN_PASSWORD || '1412';
 
 const attemptsMemory = {};
