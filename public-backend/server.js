@@ -27,7 +27,7 @@ let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID || '';
 let ACTIVE_SPREADSHEET_ID =
   process.env.ACTIVE_SPREADSHEET_ID || DEFAULT_SPREADSHEET_ID;
 
-// ⬅️⬅️⬅️ נוסף לוג כדי לדעת מה נטען
+// לוגים כדי להבין מה קורה בזמן עליית השרת
 console.log("📄 DEFAULT_SPREADSHEET_ID:", DEFAULT_SPREADSHEET_ID || "[לא מוגדר]");
 console.log("📄 ACTIVE_SPREADSHEET_ID בתחילת טעינה:", ACTIVE_SPREADSHEET_ID || "[לא מוגדר]");
 
@@ -48,7 +48,7 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowedOrigins = [
     'https://cljs-nfc-ashy.vercel.app',   // האפליקציה הראשית ב-Vercel
-    'https://cljs-nfc.vercel.app'         // גיבוי אם יש דומיין ישן
+    'https://cljs-nfc.vercel.app'         // דומיין ישן (אם עדיין בשימוש)
   ];
   
   if (origin && allowedOrigins.includes(origin)) {
@@ -65,7 +65,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ Health check endpoint - מונע השעיה ב-Render
+// ✅ Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -75,10 +75,8 @@ let credentials;
 let CREDENTIALS_PATH;
 
 if (process.env.GOOGLE_CREDENTIALS_JSON) {
-  // מצב ענן (כמו Render)
   credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
 } else {
-  // מצב מקומי (כמו אצלך ב־localhost)
   CREDENTIALS_PATH = process.env.GOOGLE_SA_PATH;
   credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
 }
@@ -90,7 +88,6 @@ const auth = new google.auth.GoogleAuth({ credentials, scopes: SCOPES });
 const sheets = google.sheets({ version: 'v4', auth });
 
 // קוד אדמין (לתיקונים / החלפת גיליון)
-// אפשר לשים ב-.env כ-ADMIN_PASSWORD ואם לא – ברירת מחדל 1412
 const ADMIN_CODE = process.env.ADMIN_PASSWORD || '1412';
 
 const attemptsMemory = {};
@@ -181,7 +178,6 @@ async function restoreAttemptsMemory() {
     console.log('✅ attemptsMemory שוחזר בהצלחה מתוך AllAttempts');
   } catch (err) {
     console.error('❌ שגיאה בשחזור memory:', err.message);
-    console.error('❌ יתכן שאין הרשאה לגיליון או שהוא לא זמין כרגע');
   }
 }
 
@@ -204,14 +200,14 @@ async function logToAttemptsSheet(name, route, result) {
       valueInputOption: 'USER_ENTERED',
       resource: { values: [[attemptCount]] },
     });
-    console.log(`✅ כתיבה ל-Atempts (${name}, מסלול ${route}, ניסיון ${attemptCount})`);
+    console.log(`✅ כתיבה ל-Atempts (שם: ${name}, מסלול: ${route}, ניסיון: ${attemptCount})`);
   } catch (err) {
     console.error('❌ שגיאה בעדכון גיליון Atempts:', err.message);
   }
 }
 
 // ==============================
-// סנכרון ניסיונות אופליין (אם משתמשים גם פה)
+// סנכרון ניסיונות אופליין
 // ==============================
 app.post('/sync-offline', async (req, res) => {
   const spreadsheetId = getActiveSheetId();
@@ -298,8 +294,12 @@ app.get('/history', async (req, res) => {
 // ==============================
 app.post('/correct', async (req, res) => {
   const spreadsheetId = getActiveSheetId();
-  const { name, route, adminCode } = req.body;
-  if (adminCode !== ADMIN_CODE) return res.status(403).json({ error: 'קוד שגוי' });
+  const { name, route, judgePassword } = req.body;
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ADMIN_CODE;
+
+  if (!ADMIN_PASSWORD || judgePassword !== ADMIN_PASSWORD) {
+    return res.status(403).json({ error: 'קוד שופט ראשי שגוי' });
+  }
 
   const routeNum = parseInt(route, 10);
   if (attemptsMemory[name]) attemptsMemory[name][routeNum] = [];
@@ -428,7 +428,7 @@ app.post('/queue/add', async (req, res) => {
 
     queues[stationId] = queues[stationId] || [];
 
-    // אם כבר בתור – הסרה (כדי לאפשר ביטול תור)
+    // אם כבר בתור – הסרה (ביטול תור)
     if (queues[stationId].includes(name)) {
       queues[stationId] = queues[stationId].filter(n => n !== name);
       return res.json({ message: 'הוסר מהתור', name });
@@ -679,9 +679,10 @@ app.post('/set-active-sheet', async (req, res) => {
 
   // עדכון המזהה הפעיל בזמן ריצה
   ACTIVE_SPREADSHEET_ID = newSheetId;
+  process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
   console.log('📄 ACTIVE_SPREADSHEET_ID (personal) עודכן ל:', ACTIVE_SPREADSHEET_ID);
 
-  // ניסיון לשמור לקובץ .env (יעבוד מקומית; ברנדר יתעלם, אבל זה לא מזיק)
+  // ניסיון לשמור לקובץ .env (עובד מקומית; ברנדר זה יתעלם בריסטארט)
   try {
     const envPath = path.join(__dirname, '.env');
     let envContent = '';
