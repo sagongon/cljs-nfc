@@ -201,7 +201,8 @@ async function logToAttemptsSheet(name, route, result) {
       valueInputOption: 'USER_ENTERED',
       resource: { values: [[attemptCount]] },
     });
-    console.log(`✅ כתיבה ל-Atempts (${name, מסלול ${route}, ניסיון ${attemptCount})`);
+    console.log(`✅ כתיבה ל-Atempts (שם: ${name}, מסלול: ${route}, ניסיון: ${attemptCount})`);
+
   } catch (err) {
     console.error('❌ שגיאה בעדכון גיליון Atempts:', err.message);
   }
