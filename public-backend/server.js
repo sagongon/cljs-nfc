@@ -643,6 +643,27 @@ app.post('/set-active-sheet', async (req, res) => {
   return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
 });
 
+// ================================
+// מחזיר את מזהה הגיליון הפעיל
+// ================================
+app.get('/get-active-sheet', (req, res) => {
+  try {
+    if (!ACTIVE_SPREADSHEET_ID) {
+      return res.status(404).json({
+        error: 'אין מזהה גיליון פעיל כרגע בשרת.'
+      });
+    }
+
+    res.json({
+      activeSheetId: ACTIVE_SPREADSHEET_ID
+    });
+
+  } catch (err) {
+    console.error("שגיאה בנתיב /get-active-sheet:", err);
+    res.status(500).json({ error: 'שגיאה פנימית בשרת' });
+  }
+});
+
 
 // ✅ הפעלת השרת
 app.listen(PORT, async () => {
