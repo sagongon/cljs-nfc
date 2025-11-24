@@ -78,6 +78,9 @@ if (process.env.GOOGLE_CREDENTIALS_JSON) {
   credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
 }
 
+console.log("📧 PersonalLiveResults משתמש ב-Service Account:", credentials.client_email);
+
+
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const auth = new google.auth.GoogleAuth({ credentials, scopes: SCOPES });
 const sheets = google.sheets({ version: 'v4', auth });
