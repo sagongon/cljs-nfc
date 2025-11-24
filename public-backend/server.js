@@ -27,7 +27,7 @@ let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID || '';
 let ACTIVE_SPREADSHEET_ID =
   process.env.ACTIVE_SPREADSHEET_ID || DEFAULT_SPREADSHEET_ID;
 
-// ⬅️⬅️⬅️ לוג כדי לדעת מה נטען
+// ⬅️⬅️⬅️ נוסף לוג כדי לדעת מה נטען
 console.log("📄 DEFAULT_SPREADSHEET_ID:", DEFAULT_SPREADSHEET_ID || "[לא מוגדר]");
 console.log("📄 ACTIVE_SPREADSHEET_ID בתחילת טעינה:", ACTIVE_SPREADSHEET_ID || "[לא מוגדר]");
 
@@ -75,8 +75,10 @@ let credentials;
 let CREDENTIALS_PATH;
 
 if (process.env.GOOGLE_CREDENTIALS_JSON) {
+  // מצב ענן (כמו Render)
   credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON);
 } else {
+  // מצב מקומי (כמו אצלך ב־localhost)
   CREDENTIALS_PATH = process.env.GOOGLE_SA_PATH;
   credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
 }
@@ -88,6 +90,7 @@ const auth = new google.auth.GoogleAuth({ credentials, scopes: SCOPES });
 const sheets = google.sheets({ version: 'v4', auth });
 
 // קוד אדמין (לתיקונים / החלפת גיליון)
+// אפשר לשים ב-.env כ-ADMIN_PASSWORD ואם לא – ברירת מחדל 1412
 const ADMIN_CODE = process.env.ADMIN_PASSWORD || '1412';
 
 const attemptsMemory = {};
@@ -201,15 +204,14 @@ async function logToAttemptsSheet(name, route, result) {
       valueInputOption: 'USER_ENTERED',
       resource: { values: [[attemptCount]] },
     });
-    console.log(`✅ כתיבה ל-Atempts (שם: ${name}, מסלול: ${route}, ניסיון: ${attemptCount})`);
-
+    console.log(`✅ כתיבה ל-Atempts (${name}, מסלול ${route}, ניסיון ${attemptCount})`);
   } catch (err) {
     console.error('❌ שגיאה בעדכון גיליון Atempts:', err.message);
   }
 }
 
 // ==============================
-// סנכרון ניסיונות אופליין
+// סנכרון ניסיונות אופליין (אם משתמשים גם פה)
 // ==============================
 app.post('/sync-offline', async (req, res) => {
   const spreadsheetId = getActiveSheetId();
@@ -675,12 +677,11 @@ app.post('/set-active-sheet', async (req, res) => {
     return res.status(400).json({ error: 'ID גיליון לא תקין' });
   }
 
-  // עדכון המזהה הפעיל בזמן ריצה + ENV
+  // עדכון המזהה הפעיל בזמן ריצה
   ACTIVE_SPREADSHEET_ID = newSheetId;
-  process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
   console.log('📄 ACTIVE_SPREADSHEET_ID (personal) עודכן ל:', ACTIVE_SPREADSHEET_ID);
 
-  // ניסיון לשמור לקובץ .env (עובד מקומית; ברנדר יתעלם בהפעלה מחדש)
+  // ניסיון לשמור לקובץ .env (יעבוד מקומית; ברנדר יתעלם, אבל זה לא מזיק)
   try {
     const envPath = path.join(__dirname, '.env');
     let envContent = '';
