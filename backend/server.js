@@ -7,12 +7,10 @@ import { fileURLToPath } from 'url';
 import dns from 'dns';
 import dotenv from 'dotenv';
 
-
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 
 dns.setDefaultResultOrder('ipv4first');
 process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
@@ -47,26 +45,27 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-
 app.use((req, res, next) => {
   console.log(`📥 בקשה מ: ${req.headers.origin} לנתיב ${req.url}`);
   next();
 });
 
-
 const PORT = process.env.PORT || 4000;
 
-let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID;
-let ACTIVE_SPREADSHEET_ID = DEFAULT_SPREADSHEET_ID;
+// 🟡 ברירת מחדל + מזהה פעיל (מתוך ENV אם קיים)
+let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID || '';
+let ACTIVE_SPREADSHEET_ID =
+  process.env.ACTIVE_SPREADSHEET_ID || DEFAULT_SPREADSHEET_ID;
+
+console.log("📄 DEFAULT_SPREADSHEET_ID:", DEFAULT_SPREADSHEET_ID || "[לא מוגדר]");
+console.log("📄 ACTIVE_SPREADSHEET_ID בתחילת טעינה:", ACTIVE_SPREADSHEET_ID || "[לא מוגדר]");
 
 if (!ACTIVE_SPREADSHEET_ID) {
   console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
   process.exit(1);
 }
 
-
-
-// ✅ פונקציה שתשתמש תמיד במזהה הנוכחי
+// ✅ פונקציה שתשתמש תמיד במזהה הנוכחי (אם תרצה בעתיד)
 function getActiveSheetId() {
   return ACTIVE_SPREADSHEET_ID;
 }
@@ -92,20 +91,19 @@ const attemptsMemory = {};
 const queues = {}; // תורים לפי תחנה
 
 async function ensureNFCMapSheet() {
-  const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
- });
+  const sheetMeta = await sheets.spreadsheets.get({
+    spreadsheetId: ACTIVE_SPREADSHEET_ID
+  });
   const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
   if (!sheetNames.includes('NFCMap')) {
     await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       requestBody: {
         requests: [{ addSheet: { properties: { title: 'NFCMap' } } }],
       },
     });
     await sheets.spreadsheets.values.update({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'NFCMap!A1:B1',
       valueInputOption: 'USER_ENTERED',
       resource: { values: [['UID', 'Name']] },
@@ -126,7 +124,9 @@ function getExcelColumnName(n) {
 
 async function ensureAllAttemptsSheet() {
   try {
-    const sheetMeta = await sheets.spreadsheets.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID });
+    const sheetMeta = await sheets.spreadsheets.get({
+      spreadsheetId: ACTIVE_SPREADSHEET_ID
+    });
     const sheetNames = sheetMeta.data.sheets.map((s) => s.properties.title);
     if (!sheetNames.includes('AllAttempts')) {
       await sheets.spreadsheets.batchUpdate({
@@ -148,7 +148,7 @@ async function ensureAllAttemptsSheet() {
     if (err.code === 403) {
       console.error('❌ אין הרשאה לגיליון. ודא שה-service account מקבל הרשאה לגיליון או שהגיליון פתוח לגישה לכל מי שיש לו את הלינק.');
     }
-    throw err; // נזרוק את השגיאה כדי שהפונקציה הקוראת תטפל בה
+    throw err;
   }
 }
 
@@ -158,7 +158,7 @@ async function restoreAttemptsMemory() {
     await ensureAllAttemptsSheet();
   } catch (err) {
     console.error('❌ לא ניתן לגשת לגיליון AllAttempts. השרת יעבוד ללא שיחזור memory:', err.message);
-    return; // נצא מהפונקציה - השרת יעבוד בלי memory
+    return;
   }
   
   try {
@@ -193,8 +193,7 @@ async function logToAttemptsSheet(name, route, result) {
   if (result !== 'T') return;
   try {
     const getNames = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'Atempts!B2:B',
     });
     const rowIndex = getNames.data.values.findIndex((row) => row[0] === name);
@@ -203,8 +202,7 @@ async function logToAttemptsSheet(name, route, result) {
     const columnLetter = getExcelColumnName(parseInt(route, 10) + 2);
     const attemptCount = attemptsMemory[name]?.[parseInt(route, 10)]?.length || '';
     await sheets.spreadsheets.values.update({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: `Atempts!${columnLetter}${excelRow}`,
       valueInputOption: 'USER_ENTERED',
       resource: { values: [[attemptCount]] },
@@ -236,8 +234,7 @@ app.post('/sync-offline', async (req, res) => {
     try {
       await ensureAllAttemptsSheet();
       await sheets.spreadsheets.values.append({
-        spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+        spreadsheetId: ACTIVE_SPREADSHEET_ID,
         range: 'AllAttempts!A:E',
         valueInputOption: 'USER_ENTERED',
         resource: {
@@ -259,8 +256,7 @@ app.post('/sync-offline', async (req, res) => {
 app.get('/competitors', async (req, res) => {
   try {
     const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'Atempts!B2:B',
     });
     const names = result.data.values?.map((row) => row[0]) || [];
@@ -290,8 +286,7 @@ app.post('/correct', async (req, res) => {
 
   try {
     await sheets.spreadsheets.values.append({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'AllAttempts!A:E',
       valueInputOption: 'USER_ENTERED',
       resource: {
@@ -305,8 +300,7 @@ app.post('/correct', async (req, res) => {
 
   try {
     const getNames = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'Atempts!B2:B',
     });
     const rowIndex = getNames.data.values.findIndex((row) => row[0] === name);
@@ -314,8 +308,7 @@ app.post('/correct', async (req, res) => {
       const excelRow = rowIndex + 2;
       const columnLetter = getExcelColumnName(routeNum + 2);
       await sheets.spreadsheets.values.update({
-        spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+        spreadsheetId: ACTIVE_SPREADSHEET_ID,
         range: `Atempts!${columnLetter}${excelRow}`,
         valueInputOption: 'USER_ENTERED',
         resource: { values: [['']] },
@@ -349,8 +342,7 @@ app.post('/mark', async (req, res) => {
   try {
     await ensureAllAttemptsSheet();
     await sheets.spreadsheets.values.append({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'AllAttempts!A:E',
       valueInputOption: 'USER_ENTERED',
       resource: {
@@ -358,12 +350,12 @@ app.post('/mark', async (req, res) => {
       },
     });
 
-// הסרה מהתור אחרי סימון ניסיון
-if (queues) {
-  for (const id in queues) {
-    queues[id] = queues[id].filter(n => n !== name);
-  }
-}
+    // הסרה מהתור אחרי סימון ניסיון
+    if (queues) {
+      for (const id in queues) {
+        queues[id] = queues[id].filter(n => n !== name);
+      }
+    }
 
   } catch (err) {
     console.error('❌ שגיאה בכתיבה ל-AllAttempts:', err.message);
@@ -379,7 +371,6 @@ if (queues) {
   res.json({ message: 'OK', history: historyArr, locked: result === 'T' || historyArr.length >= 5 });
 });
 
-
 // 📥 הוספת מתחרה לתור לפי UID ותחנה
 app.post('/queue/add', async (req, res) => {
   await ensureNFCMapSheet();
@@ -388,8 +379,7 @@ app.post('/queue/add', async (req, res) => {
 
   try {
     const resGet = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'NFCMap!A2:B',
     });
     const rows = resGet.data.values || [];
@@ -416,7 +406,6 @@ app.post('/queue/add', async (req, res) => {
   }
 });
 
-
 // ✅ החזרת כל התור לתחנה
 app.get('/queue/:stationId/all', (req, res) => {
   const { stationId } = req.params;
@@ -442,16 +431,12 @@ app.post('/queue/dequeue', (req, res) => {
   res.json({ removed });
 });
 
-
 app.get('/live', async (req, res) => {
   try {
     const [competitorsRes, attemptsRes, assistRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
-, range: 'Competitors!B2:H' }),
-      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
-, range: 'Atempts!B2:BA' }),
-      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
-, range: 'Assist Tables!B2:BA2' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID, range: 'Competitors!B2:H' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID, range: 'Atempts!B2:BA' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID, range: 'Assist Tables!B2:BA2' }),
     ]);
 
     const competitorsRows = competitorsRes.data.values || [];
@@ -494,10 +479,8 @@ app.get('/personal/:name', async (req, res) => {
   const name = decodeURIComponent(req.params.name);
   try {
     const [attemptsRes, assistRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
-, range: 'Atempts!B2:BA' }),
-      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID
-, range: 'Assist Tables!B2:BA2' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID, range: 'Atempts!B2:BA' }),
+      sheets.spreadsheets.values.get({ spreadsheetId: ACTIVE_SPREADSHEET_ID, range: 'Assist Tables!B2:BA2' }),
     ]);
 
     const attemptsRows = attemptsRes.data.values || [];
@@ -560,7 +543,6 @@ app.get('/nfc-name/:uid', async (req, res) => {
     const rows = response.data.values || [];
     console.log(`📋 נמצאו ${rows.length} שורות ב-NFCMap`);
     
-    // נסה כמה פורמטים שונים של השוואה
     const normalizeUid = (str) => (str || '').replace(/[:\s-]/g, '').toLowerCase();
     const uidNormalized = normalizeUid(uid);
     
@@ -568,13 +550,11 @@ app.get('/nfc-name/:uid', async (req, res) => {
       const rowUid = row[0] || '';
       const rowUidNormalized = normalizeUid(rowUid);
       
-      // נסה השוואה מדויקת
       if (rowUidNormalized === uidNormalized) {
         console.log(`✅ נמצא התאמה: "${rowUid}" -> "${row[1]}"`);
         return true;
       }
       
-      // נסה השוואה עם/בלי נקודתיים
       const rowUidNoColon = rowUidNormalized.replace(/:/g, '');
       const uidNoColon = uidNormalized.replace(/:/g, '');
       if (rowUidNoColon === uidNoColon && rowUidNoColon.length > 0) {
@@ -606,8 +586,7 @@ app.get('/search-id/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const sheetRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'Competitors!B2:H',
     });
     const rows = sheetRes.data.values || [];
@@ -615,8 +594,7 @@ app.get('/search-id/:id', async (req, res) => {
     if (match) {
       const name = match[0];
       const nfcRes = await sheets.spreadsheets.values.get({
-        spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+        spreadsheetId: ACTIVE_SPREADSHEET_ID,
         range: 'NFCMap!A2:B',
       });
       const nfcRows = nfcRes.data.values || [];
@@ -632,7 +610,7 @@ app.get('/search-id/:id', async (req, res) => {
   }
 });
 
-// ✅ עדכון מזהה גיליון דרך סיסמת אדמין
+// ✅ עדכון מזהה גיליון דרך סיסמת אדמין (ENV + משתנה ריצה)
 app.post('/update-sheet-id', (req, res) => {
   const { newSheetId, password } = req.body;
 
@@ -644,9 +622,19 @@ app.post('/update-sheet-id', (req, res) => {
     return res.status(400).json({ error: 'מזהה גיליון לא תקין' });
   }
 
+  ACTIVE_SPREADSHEET_ID = newSheetId;
   process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
+
   console.log(`✅ ACTIVE_SPREADSHEET_ID עודכן ל: ${newSheetId}`);
   res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
+});
+
+// ✅ מחזיר את מזהה הגיליון הפעיל (לבדיקות / דיבוג)
+app.get('/get-active-sheet', (req, res) => {
+  if (!ACTIVE_SPREADSHEET_ID) {
+    return res.status(404).json({ error: 'אין מזהה גיליון פעיל כרגע בשרת הראשי.' });
+  }
+  res.json({ activeSheetId: ACTIVE_SPREADSHEET_ID });
 });
 
 // ✅ עדכון מזהה גיליון דינמי דרך ממשק שופט ראשי
@@ -657,28 +645,22 @@ app.post('/set-active-sheet', async (req, res) => {
   console.log('🔍 התקבל adminCode:', adminCode ?? '[ריק]');
   console.log('🧠 ADMIN_PASSWORD מתוך ENV:', ADMIN_PASSWORD ?? '[ריק]');
 
-  // ודא שהקוד הסודי מוגדר בקובץ ENV
   if (!ADMIN_PASSWORD || adminCode !== ADMIN_PASSWORD) {
     console.log('❌ קוד מנהל שגוי או לא מוגדר');
     return res.status(403).json({ error: 'קוד מנהל שגוי או לא מוגדר' });
   }
 
-  // בדוק את תקינות מזהה הגיליון
   if (!newSheetId || typeof newSheetId !== 'string') {
     console.log('❌ ID גיליון לא תקין');
     return res.status(400).json({ error: 'ID גיליון לא תקין' });
   }
 
-  // ✅ עדכון המזהה הפעיל בזמן ריצה
   ACTIVE_SPREADSHEET_ID = newSheetId;
+  process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
   console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
 
-  // ✅ שלח תשובה ללקוח
   return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
 });
-
-
-
 
 app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
@@ -690,9 +672,7 @@ app.listen(PORT, async () => {
   }
 });
 
-
-// ✅ server.js – כולל מניעת שיוך כפול של UID או שם
-
+// ✅ שיוך UID לשם מתחרה – כולל מניעת שיוך כפול
 app.post('/assign-nfc', async (req, res) => {
   await ensureNFCMapSheet();
   const { name, uid } = req.body;
@@ -701,8 +681,7 @@ app.post('/assign-nfc', async (req, res) => {
   try {
     const range = 'NFCMap!A2:B';
     const result = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range,
     });
 
@@ -724,8 +703,7 @@ app.post('/assign-nfc', async (req, res) => {
     }
 
     await sheets.spreadsheets.values.append({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID
-,
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'NFCMap!A:B',
       valueInputOption: 'USER_ENTERED',
       resource: {

@@ -1,63 +1,110 @@
 import React, { useState } from 'react';
 
-// שימוש באותה כתובת שרת כמו MainApp - זה מבטיח שאנחנו משתמשים באותו שרת
-const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000';
+// 🟢 שרת ראשי (שיפוט) – כמו שעבדת עד היום
+// קודם מנסים REACT_APP_PRIMARY_API_URL,
+// אם אין – נופלים חזרה ל-REACT_APP_API_BASE_URL,
+// ואם גם אין – עובדים מקומית מול localhost:4000
+const PRIMARY_SERVER =
+  process.env.REACT_APP_PRIMARY_API_URL ||
+  process.env.REACT_APP_API_BASE_URL ||
+  'http://localhost:4000';
+
+// 🔵 שרת משני (תוצאות אישיות)
+// חובה להגדיר ב-Vercel: REACT_APP_SECONDARY_API_URL
+// אם לא מוגדר – נופל חזרה לשרת הראשי כדי לא לשבור כלום
+const SECONDARY_SERVER =
+  process.env.REACT_APP_SECONDARY_API_URL ||
+  PRIMARY_SERVER;
 
 export default function SpreadsheetSettings() {
   const [adminPassword, setAdminPassword] = useState('');
   const [sheetId, setSheetId] = useState('');
   const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async () => {
+    setMessage('');
+
     if (!adminPassword || !sheetId) {
       setMessage('❌ יש למלא את כל השדות');
       return;
     }
 
-    setMessage(`⏳ שולח לשרת: ${SERVER_URL}...`);
+    setIsLoading(true);
+
     try {
-      const res = await fetch(`${SERVER_URL}/set-active-sheet`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminCode: adminPassword, newSheetId: sheetId }),
-      });
+      console.log('PRIMARY_SERVER:', PRIMARY_SERVER);
+      console.log('SECONDARY_SERVER:', SECONDARY_SERVER);
 
-      if (!res.ok) {
-        // אם יש שגיאת CORS או שגיאה אחרת, ננסה לקבל את הטקסט
-        const errorText = await res.text();
-        console.error('שגיאת שרת:', res.status, errorText);
-        try {
-          const errorData = JSON.parse(errorText);
-          setMessage(`❌ ${errorData.error || 'שגיאה לא ידועה'}`);
-        } catch {
-          setMessage(`❌ שגיאת שרת (${res.status}): ${errorText || 'שגיאת CORS - השרת לא מעודכן'}`);
-        }
-        return;
-      }
+      const payload = {
+        adminCode: adminPassword,
+        newSheetId: sheetId,
+      };
 
-      const data = await res.json();
-      setMessage(`✅ ${data.message}`);
-      setAdminPassword('');
-      setSheetId('');
-    } catch (err) {
-      console.error('שגיאה בשליחת הבקשה:', err);
-      if (err.message.includes('CORS') || err.message.includes('Failed to fetch')) {
-        setMessage(`❌ שגיאת CORS: השרת ב-${SERVER_URL} לא מעודכן או לא מאפשר גישה. אנא ודא שהשרת מעודכן עם התיקונים האחרונים.`);
+      const headers = { 'Content-Type': 'application/json' };
+
+      // שולחים במקביל לשני השרתים
+      const [primaryRes, secondaryRes] = await Promise.all([
+        fetch(`${PRIMARY_SERVER}/set-active-sheet`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }),
+        fetch(`${SECONDARY_SERVER}/set-active-sheet`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        }),
+      ]);
+
+      const primaryData = await primaryRes.json().catch(() => ({}));
+      const secondaryData = await secondaryRes.json().catch(() => ({}));
+
+      const primaryOk = primaryRes.ok;
+      const secondaryOk = secondaryRes.ok;
+
+      if (primaryOk && secondaryOk) {
+        setMessage('✅ מזהה הגיליון עודכן בהצלחה בשני השרתים!');
+        setSheetId('');
+        setAdminPassword('');
+      } else if (primaryOk && !secondaryOk) {
+        setMessage(
+          `⚠️ עודכן רק בשרת הראשי. שגיאה בשרת המשני: ${
+            secondaryData.error || 'לא ידוע'
+          }`
+        );
+      } else if (!primaryOk && secondaryOk) {
+        setMessage(
+          `⚠️ עודכן רק בשרת המשני. שגיאה בשרת הראשי: ${
+            primaryData.error || 'לא ידוע'
+          }`
+        );
       } else {
-        setMessage(`❌ שגיאה בשליחת הבקשה לשרת: ${err.message || 'לא ניתן להתחבר לשרת'}`);
+        setMessage(
+          `❌ העדכון נכשל בשני השרתים. ראשי: ${
+            primaryData.error || 'לא ידוע'
+          }, משני: ${secondaryData.error || 'לא ידוע'}`
+        );
       }
+    } catch (err) {
+      console.error('שגיאה בעדכון מזהה גיליון:', err);
+      setMessage('❌ שגיאה כללית בעדכון מזהה הגיליון');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="settings-container">
-      <h2>הגדרות גיליון</h2>
+    <div className="admin-panel">
+      <h2>⚙️ ניהול מזהה גיליון</h2>
+
       <input
         type="password"
-        placeholder="קוד מנהל"
+        placeholder="סיסמת מנהל"
         value={adminPassword}
         onChange={(e) => setAdminPassword(e.target.value)}
         className="admin-input"
+        disabled={isLoading}
       />
       <input
         type="text"
@@ -65,8 +112,11 @@ export default function SpreadsheetSettings() {
         value={sheetId}
         onChange={(e) => setSheetId(e.target.value)}
         className="sheet-id-input"
+        disabled={isLoading}
       />
-      <button onClick={handleSubmit}>שמור גיליון חדש</button>
+      <button onClick={handleSubmit} disabled={isLoading}>
+        {isLoading ? 'שומר...' : 'שמור גיליון חדש'}
+      </button>
       {message && <p>{message}</p>}
     </div>
   );
