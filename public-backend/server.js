@@ -87,7 +87,7 @@ const sheets = google.sheets({ version: 'v4', auth });
 
 // קוד אדמין (לתיקונים / החלפת גיליון)
 // אפשר לשים ב-.env כ-ADMIN_PASSWORD ואם לא – ברירת מחדל 007
-const ADMIN_CODE = process.env.ADMIN_PASSWORD || '007';
+const ADMIN_CODE = process.env.ADMIN_PASSWORD || '1412';
 
 const attemptsMemory = {};
 const queues = {}; // שמירת תורים לפי stationId
