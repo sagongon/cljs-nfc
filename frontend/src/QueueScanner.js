@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 
 const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'https://cljs.onrender.com';
@@ -9,7 +9,7 @@ const QueueScanner = () => {
   const [queue, setQueue] = useState([]);
   const [reader, setReader] = useState(null);
 
-  const fetchQueue = async () => {
+  const fetchQueue = useCallback(async () => {
     try {
       const res = await fetch(`${SERVER_URL}/queue/${stationId}/all`);
       const data = await res.json();
@@ -17,15 +17,15 @@ const QueueScanner = () => {
     } catch (err) {
       console.error('שגיאה בטעינת התור:', err);
     }
-  };
+  }, [stationId]);
 
   useEffect(() => {
     fetchQueue();
     const interval = setInterval(fetchQueue, 3000);
     return () => clearInterval(interval);
-  }, [stationId]);
+  }, [fetchQueue]);
 
-  const startScan = async () => {
+  const startScan = useCallback(async () => {
     if (!('NDEFReader' in window)) {
       setMessage('המכשיר לא תומך ב־NFC');
       return;
@@ -59,14 +59,13 @@ const QueueScanner = () => {
       console.error('שגיאה בהפעלת הסריקה:', err);
       setMessage('❌ שגיאה בקריאת NFC');
     }
-  };
+  }, [stationId, fetchQueue]);
 
-  // הפעלת סריקה אוטומטית
   useEffect(() => {
     if (!reader) {
       startScan();
     }
-  }, [reader]);
+  }, [reader, startScan]);
 
   return (
     <div className="scanner" style={{ textAlign: 'center', padding: '20px' }}>
