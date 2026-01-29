@@ -5,8 +5,8 @@ const SERVER_URL = 'https://personalliveresults.onrender.com';
 
 export default function NfcPersonalScanner() {
   const [message, setMessage] = useState('📡 מחכה לצמיד...');
-  const [extraInfo, setExtraInfo] = useState('');
-  const [scanning, setScanning] = useState(false);
+  const [, setExtraInfo] = useState('');
+  const [, setScanning] = useState(false);
   const [personalData, setPersonalData] = useState(null);
 
   useEffect(() => {
