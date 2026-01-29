@@ -21,8 +21,9 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   const [adminCode, setAdminCode] = useState('');
   const [correctionMessage, setCorrectionMessage] = useState('');
   const [syncMessage, setSyncMessage] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [lastRoute, setLastRoute] = useState('');
+  const [, setLastName] = useState('');
+ const [, setLastRoute] = useState('');
+
   const [pendingResult, setPendingResult] = useState(null);
   const [warningMsg, setWarningMsg] = useState('');
   const [isRegisterMode, setIsRegisterMode] = useState(false);
