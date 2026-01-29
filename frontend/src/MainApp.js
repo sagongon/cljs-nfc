@@ -17,6 +17,7 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   const [routeNumber, setRouteNumber] = useState('');
   const [history, setHistory] = useState([]);
   const [locked, setLocked] = useState(false);
+ const [isSubmitting, setIsSubmitting] = useState(false);
   const [adminCode, setAdminCode] = useState('');
   const [correctionMessage, setCorrectionMessage] = useState('');
   const [syncMessage, setSyncMessage] = useState('');
@@ -249,35 +250,55 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   confirmMark(res);
 };
 
-  const confirmMark = async res => {
-    const entry = { name: selectedName, route: routeNumber, result: res, stationId, timestamp: new Date().toISOString() };
-    const pending = JSON.parse(localStorage.getItem('offlineAttempts') || '[]');
-    pending.push(entry);
-    localStorage.setItem('offlineAttempts', JSON.stringify(pending));
-    setHistory(prev => [...prev, res]);
-    try {
-      const resp = await fetch(`${SERVER_URL}/mark`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entry)
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        setHistory(data.history);
-        setLocked(data.locked);
-      }
-    } catch {}
-    setLastName(selectedName);
-setLastRoute(routeNumber);
-setWarningMsg('');
-setPendingResult(null);
-fetchHistory(selectedName, routeNumber); // רענון היסטוריה
-setTimeout(() => {
-  setSelectedName('');
-  setRouteNumber('');
-}, 100); // איפוס קל לאחר ההיסטוריה
+  const confirmMark = async (res) => {
+  if (isSubmitting) return;
+  setIsSubmitting(true);
 
+  const entry = {
+    name: selectedName,
+    route: routeNumber,
+    result: res,
+    stationId,
+    timestamp: new Date().toISOString()
   };
+
+  const pending = JSON.parse(localStorage.getItem('offlineAttempts') || '[]');
+  pending.push(entry);
+  localStorage.setItem('offlineAttempts', JSON.stringify(pending));
+
+  setHistory(prev => [...prev, res]);
+
+  try {
+    const resp = await fetch(`${SERVER_URL}/mark`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(entry)
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      setHistory(data.history);
+      setLocked(data.locked);
+    }
+  } catch {
+    // intentionally empty – offline handled via localStorage
+  } finally {
+    setIsSubmitting(false);
+  }
+
+  setLastName(selectedName);
+  setLastRoute(routeNumber);
+  setWarningMsg('');
+  setPendingResult(null);
+
+  fetchHistory(selectedName, routeNumber); // רענון היסטוריה
+
+  setTimeout(() => {
+    setSelectedName('');
+    setRouteNumber('');
+  }, 100);
+};
+
 
   const cancelMark = () => {
     setWarningMsg('');
@@ -417,8 +438,24 @@ setTimeout(() => {
             />
 
             <div className='button-container'>
-              <button onClick={() => requestMark('X')} disabled={locked}>❌ ניסיון</button>
-              <button onClick={() => requestMark('T')} disabled={locked}>✅ הצלחה</button>
+              <button
+  onClick={() => requestMark('X')}
+  disabled={locked || isSubmitting}
+>
+  ❌ ניסיון
+</button>
+
+<button
+  onClick={() => requestMark('T')}
+  disabled={locked || isSubmitting}
+>
+  ✅ הצלחה
+</button>
+
+{isSubmitting && (
+  <p className="saving-msg">⏳ נרשם…</p>
+)}
+
             </div>
 
             {warningMsg && (
