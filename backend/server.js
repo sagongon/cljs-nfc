@@ -278,35 +278,55 @@ app.get('/history', async (req, res) => {
 });
 
 app.post('/correct', async (req, res) => {
-  const { name, route, adminCode } = req.body;
-  if (adminCode !== process.env.JUDGE_PASSWORD) return res.status(403).json({ error: 'קוד שגוי' });
+  const { name, route, judgePassword } = req.body;
+
+  // 🔐 בדיקת קוד שופט (לא אדמין)
+  if (judgePassword !== process.env.JUDGE_PASSWORD) {
+    return res.status(403).json({ error: 'קוד שופט שגוי' });
+  }
 
   const routeNum = parseInt(route, 10);
-  if (attemptsMemory[name]) attemptsMemory[name][routeNum] = [];
 
+  // איפוס בזיכרון
+  if (attemptsMemory[name]) {
+    attemptsMemory[name][routeNum] = [];
+  }
+
+  // רישום RESET ל-AllAttempts
   try {
     await sheets.spreadsheets.values.append({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'AllAttempts!A:E',
       valueInputOption: 'USER_ENTERED',
       resource: {
-        values: [[name, routeNum, 'RESET', '', new Date().toLocaleString('he-IL')]],
+        values: [[
+          name,
+          routeNum,
+          'RESET',
+          '',
+          new Date().toLocaleString('he-IL')
+        ]],
       },
     });
-    console.log(`📝 נרשם RESET ל־AllAttempts עבור ${name}, מסלול ${routeNum}`);
+
+    console.log(`📝 RESET נרשם ל-AllAttempts עבור ${name}, מסלול ${routeNum}`);
   } catch (err) {
     console.error('❌ שגיאה ברישום RESET:', err.message);
+    return res.status(500).json({ error: 'שגיאה ברישום RESET' });
   }
 
+  // ניקוי התא בגיליון Atempts
   try {
     const getNames = await sheets.spreadsheets.values.get({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'Atempts!B2:B',
     });
-    const rowIndex = getNames.data.values.findIndex((row) => row[0] === name);
+
+    const rowIndex = getNames.data.values.findIndex(row => row[0] === name);
     if (rowIndex !== -1) {
       const excelRow = rowIndex + 2;
       const columnLetter = getExcelColumnName(routeNum + 2);
+
       await sheets.spreadsheets.values.update({
         spreadsheetId: ACTIVE_SPREADSHEET_ID,
         range: `Atempts!${columnLetter}${excelRow}`,
@@ -316,9 +336,10 @@ app.post('/correct', async (req, res) => {
     }
   } catch (err) {
     console.error('❌ שגיאה בניקוי Atempts:', err.message);
+    return res.status(500).json({ error: 'שגיאה בניקוי Atempts' });
   }
 
-  res.json({ message: 'הניסיונות אופסו' });
+  res.json({ message: 'הניסיונות אופסו בהצלחה' });
 });
 
 app.get('/refresh', async (req, res) => {
