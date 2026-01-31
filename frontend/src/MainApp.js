@@ -15,6 +15,37 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   const [newExtra, setNewExtra] = useState('');
   const [selectedName, setSelectedName] = useState('');
   const [routeNumber, setRouteNumber] = useState('');
+
+  const [allowedRoutesText, setAllowedRoutesText] = useState('');
+    const [allowedRoutes, setAllowedRoutes] = useState([]);
+
+    useEffect(() => {
+      const saved = localStorage.getItem('allowedRoutes');
+      if (saved) {
+        try {
+          const arr = JSON.parse(saved);
+          if (Array.isArray(arr)) {
+            const normalized = arr.map(String);
+            setAllowedRoutes(normalized);
+            setAllowedRoutesText(normalized.join(','));
+          }
+        } catch {
+          // ignore malformed storage
+        }
+      }
+    }, []);
+
+    const saveAllowedRoutes = () => {
+      const routes = allowedRoutesText
+        .split(/[,\s]+/)
+        .map(r => r.trim())
+        .filter(r => r && !isNaN(r))
+        .map(r => String(parseInt(r, 10)));
+
+      const uniq = Array.from(new Set(routes)).sort((a, b) => Number(a) - Number(b));
+      setAllowedRoutes(uniq);
+      localStorage.setItem('allowedRoutes', JSON.stringify(uniq));
+    };
   const [history, setHistory] = useState([]);
   const [locked, setLocked] = useState(false);
  const [isSubmitting, setIsSubmitting] = useState(false);
@@ -255,6 +286,12 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
   if (isSubmitting) return;
   setIsSubmitting(true);
 
+  if (allowedRoutes.length > 0 && !allowedRoutes.includes(String(routeNumber))) {
+    alert('המסלול לא מוגדר לשופט זה');
+    setIsSubmitting(false);
+    return;
+  }
+
   const entry = {
     name: selectedName,
     route: routeNumber,
@@ -429,14 +466,53 @@ const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:4000'
               <option value=''>בחר מתחרה</option>
               {filteredNames.map(name => <option key={name} value={name}>{name}</option>)}
             </select>
-            <input
-              type='number'
-              placeholder='מספר מסלול'
-              value={routeNumber}
-              min={1}
-              onChange={e => setRouteNumber(e.target.value)}
-              className='route-input'
-            />
+            <div style={{ marginBottom: 10, padding: 8, border: '1px solid #ccc', borderRadius: 6 }}>
+              <b>מסלולים לשופט זה (מקומי)</b>
+              <input
+                value={allowedRoutesText}
+                onChange={e => setAllowedRoutesText(e.target.value)}
+                placeholder="לדוגמה: 1,2,3,7"
+                style={{ width: '100%', marginTop: 4 }}
+              />
+              <button onClick={saveAllowedRoutes} style={{ marginTop: 6 }}>
+                שמור מסלולים
+              </button>
+
+              {allowedRoutes.length > 0 && (
+                <div style={{ fontSize: 13, marginTop: 4 }}>
+                  פעילים: {allowedRoutes.join(', ')}
+                </div>
+              )}
+            </div>
+
+            {allowedRoutes.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {allowedRoutes.map(r => (
+                  <button
+                    key={r}
+                    onClick={() => setRouteNumber(r)}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: '1px solid #aaa',
+                      fontWeight: 'bold',
+                      background: routeNumber === r ? '#dbeafe' : '#fff'
+                    }}
+                  >
+                    מסלול {r}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <input
+                type='number'
+                placeholder='מספר מסלול'
+                value={routeNumber}
+                min={1}
+                onChange={e => setRouteNumber(e.target.value)}
+                className='route-input'
+              />
+            )}
 
             <div className='button-container'>
               <button
