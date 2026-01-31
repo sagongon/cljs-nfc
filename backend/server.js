@@ -253,12 +253,113 @@ async function logToAttemptsSheet(name, route, result) {
   }
 }
 
+// 🔁 רענון תקופתי: סנכרון Atempts מתוך AllAttempts (תיקון "נכתב רק ל-AllAttempts")
+let isReconcilingAtempts = false;
+
+async function buildAtemptsRowMap() {
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: ACTIVE_SPREADSHEET_ID,
+    range: 'Atempts!B2:B',
+  });
+  const names = res.data.values || [];
+  const map = new Map(); // name -> excelRow
+  for (let i = 0; i < names.length; i++) {
+    const name = (names[i]?.[0] || '').toString().trim();
+    if (name) map.set(name, i + 2); // row index in sheet
+  }
+  return map;
+}
+
+// מחזיר Map: name -> Map(routeNum -> {attempts: number|string(''), isReset:boolean})
+async function computeLatestAtemptsFromAllAttempts() {
+  await ensureAllAttemptsSheet();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: ACTIVE_SPREADSHEET_ID,
+    range: 'AllAttempts!A2:F',
+  });
+  const rows = res.data.values || [];
+
+  const out = new Map();
+
+  const setVal = (name, routeNum, payload) => {
+    if (!out.has(name)) out.set(name, new Map());
+    out.get(name).set(routeNum, payload);
+  };
+
+  for (const row of rows) {
+    const name = (row?.[0] || '').toString().trim();
+    const routeNum = parseInt((row?.[1] || '').toString(), 10);
+    const result = (row?.[2] || '').toString().trim();
+    const attemptStr = (row?.[3] || '').toString().trim();
+
+    if (!name || !Number.isFinite(routeNum)) continue;
+
+    if (result === 'RESET') {
+      setVal(name, routeNum, { attempts: '', isReset: true });
+      continue;
+    }
+
+    if (result === 'T') {
+      const attempts = parseInt(attemptStr, 10);
+      if (Number.isFinite(attempts) && attempts > 0) {
+        setVal(name, routeNum, { attempts, isReset: false });
+      }
+    }
+  }
+
+  return out;
+}
+
+async function reconcileAtemptsFromAllAttempts() {
+  if (isReconcilingAtempts) return;
+  isReconcilingAtempts = true;
+
+  try {
+    const [rowMap, latest] = await Promise.all([
+      buildAtemptsRowMap(),
+      computeLatestAtemptsFromAllAttempts(),
+    ]);
+
+    const data = [];
+
+    for (const [name, routesMap] of latest.entries()) {
+      const excelRow = rowMap.get(name);
+      if (!excelRow) continue;
+
+      for (const [routeNum, payload] of routesMap.entries()) {
+        const colLetter = getExcelColumnName(routeNum + 2);
+        data.push({
+          range: `Atempts!${colLetter}${excelRow}`,
+          values: [[payload.attempts === '' ? '' : payload.attempts]],
+        });
+      }
+    }
+
+    if (data.length === 0) return;
+
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: ACTIVE_SPREADSHEET_ID,
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data,
+      },
+    });
+
+    console.log(`🔁 reconcileAtemptsFromAllAttempts: עודכנו ${data.length} תאים ב-Atempts`);
+  } catch (err) {
+    console.error('❌ reconcileAtemptsFromAllAttempts failed:', err?.message || err);
+  } finally {
+    isReconcilingAtempts = false;
+  }
+}
+
+
 app.post('/sync-offline', async (req, res) => {
   const { attempts } = req.body;
   if (!Array.isArray(attempts)) return res.status(400).json({ error: 'invalid format' });
 
   const results = [];
-  for (const { name, route, result } of attempts) {
+  for (const { name, route, result, stationId: stationIdAttempt } of attempts) {
     const routeNum = parseInt(route, 10);
     if (!attemptsMemory[name]) attemptsMemory[name] = {};
     if (!attemptsMemory[name][routeNum]) attemptsMemory[name][routeNum] = [];
@@ -275,10 +376,10 @@ app.post('/sync-offline', async (req, res) => {
       await ensureAllAttemptsSheet();
       await sheets.spreadsheets.values.append({
         spreadsheetId: ACTIVE_SPREADSHEET_ID,
-        range: 'AllAttempts!A:E',
+        range: 'AllAttempts!A:F',
         valueInputOption: 'USER_ENTERED',
         resource: {
-          values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), stationId]],
+          values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), (typeof stationId !== 'undefined' ? stationId : '')]],
         },
       });
       await logToAttemptsSheet(name, routeNum, result);
@@ -336,7 +437,7 @@ app.post('/correct', async (req, res) => {
   try {
     await sheets.spreadsheets.values.append({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
-      range: 'AllAttempts!A:E',
+      range: 'AllAttempts!A:F',
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [[
@@ -404,10 +505,10 @@ app.post('/mark', async (req, res) => {
     await ensureAllAttemptsSheet();
     await sheets.spreadsheets.values.append({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
-      range: 'AllAttempts!A:E',
+      range: 'AllAttempts!A:F',
       valueInputOption: 'USER_ENTERED',
       resource: {
-        values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), stationId]],
+        values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), (typeof stationId !== 'undefined' ? stationId : '')]],
       },
     });
 
@@ -575,11 +676,6 @@ app.get('/personal/:name', async (req, res) => {
   }
 });
 
-const buildPath = path.join(__dirname, 'build');
-app.use(express.static(buildPath));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
-});
 
 app.get('/get-latest-uid', (req, res) => {
   try {
@@ -728,15 +824,6 @@ app.post('/set-active-sheet', async (req, res) => {
   return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
 });
 
-app.listen(PORT, async () => {
-  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
-  try {
-    await restoreAttemptsMemory();
-    console.log('✅ שיחזור memory הושלם בהצלחה');
-  } catch (err) {
-    console.error('⚠️ שגיאה בשיחזור memory, השרת ממשיך לעבוד:', err.message);
-  }
-});
 
 // ✅ שיוך UID לשם מתחרה – כולל מניעת שיוך כפול
 app.post('/assign-nfc', async (req, res) => {
@@ -784,3 +871,28 @@ app.post('/assign-nfc', async (req, res) => {
     res.status(500).json({ error: 'שגיאה בשיוך UID' });
   }
 });
+
+
+// 🧱 Serve React build (שים לב: חייב להיות אחרי כל ה-API routes)
+const buildPath = path.join(__dirname, 'build');
+app.use(express.static(buildPath));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
+});
+
+app.listen(PORT, async () => {
+  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
+  try {
+    await restoreAttemptsMemory();
+    console.log('✅ שיחזור memory הושלם בהצלחה');
+
+    // 🔁 רענון Atempts מתוך AllAttempts (פעם ראשונה + כל 2 דקות)
+    await reconcileAtemptsFromAllAttempts();
+    setInterval(() => {
+      reconcileAtemptsFromAllAttempts();
+    }, 2 * 60 * 1000);
+  } catch (err) {
+    console.error('⚠️ שגיאה בשיחזור memory, השרת ממשיך לעבוד:', err.message);
+  }
+});
+
