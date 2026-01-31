@@ -12,6 +12,42 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 💾 Persisted Active Sheet (Render Persistent Disk)
+// Set DISK_MOUNT_PATH in Render to your disk mount path (e.g. /var/data). Default tries /var/data.
+const DISK_MOUNT_PATH = process.env.DISK_MOUNT_PATH || '/var/data';
+const ACTIVE_SHEET_FILE = path.join(DISK_MOUNT_PATH, 'activeSheet.json');
+
+function readActiveSheetIdFromDisk() {
+  try {
+    if (!fs.existsSync(ACTIVE_SHEET_FILE)) return null;
+    const raw = fs.readFileSync(ACTIVE_SHEET_FILE, 'utf8');
+    const data = JSON.parse(raw);
+    const id = typeof data?.spreadsheetId === 'string' ? data.spreadsheetId.trim() : '';
+    return id || null;
+  } catch (err) {
+    console.log('⚠️ Failed reading activeSheet.json:', err?.message || err);
+    return null;
+  }
+}
+
+function saveActiveSheetIdToDisk(spreadsheetId) {
+  try {
+    const id = (spreadsheetId || '').toString().trim();
+    if (!id) return false;
+    fs.mkdirSync(DISK_MOUNT_PATH, { recursive: true });
+    fs.writeFileSync(
+      ACTIVE_SHEET_FILE,
+      JSON.stringify({ spreadsheetId: id, updatedAt: new Date().toISOString() }, null, 2),
+      'utf8'
+    );
+    return true;
+  } catch (err) {
+    console.log('❌ Failed saving activeSheet.json:', err?.message || err);
+    return false;
+  }
+}
+
+
 dns.setDefaultResultOrder('ipv4first');
 process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
 
@@ -21,7 +57,7 @@ const app = express();
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowedOrigins = ['https://cljs-nfc-ashy.vercel.app'];
-
+  
   if (origin && allowedOrigins.includes(origin)) {
     res.header("Access-Control-Allow-Origin", origin);
   }
@@ -52,13 +88,17 @@ app.use((req, res, next) => {
 
 const PORT = process.env.PORT || 4000;
 
-// 🟡 ברירת מחדל + מזהה פעיל (מתוך ENV אם קיים)
+// 🟡 ברירת מחדל + מזהה פעיל (עדיפות: דיסק -> ENV -> ברירת מחדל)
 let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID || '';
+const PERSISTED_SHEET_ID = readActiveSheetIdFromDisk();
 let ACTIVE_SPREADSHEET_ID =
-  process.env.ACTIVE_SPREADSHEET_ID || DEFAULT_SPREADSHEET_ID;
+  PERSISTED_SHEET_ID || process.env.ACTIVE_SPREADSHEET_ID || DEFAULT_SPREADSHEET_ID;
+
 
 console.log("📄 DEFAULT_SPREADSHEET_ID:", DEFAULT_SPREADSHEET_ID || "[לא מוגדר]");
 console.log("📄 ACTIVE_SPREADSHEET_ID בתחילת טעינה:", ACTIVE_SPREADSHEET_ID || "[לא מוגדר]");
+console.log("💾 Persisted sheet file:", ACTIVE_SHEET_FILE);
+console.log("💾 Persisted sheet id:", PERSISTED_SHEET_ID || "[אין]");
 
 if (!ACTIVE_SPREADSHEET_ID) {
   console.error('❌ לא מוגדר Spreadsheet ID פעיל או ברירת מחדל – הפסקת השרת');
@@ -89,16 +129,6 @@ const JUDGE_PASSWORD = process.env.JUDGE_PASSWORD;
 
 const attemptsMemory = {};
 const queues = {}; // תורים לפי תחנה
-
-// ✅ מנגנון "יישור קו" אוטומטי Atempts מתוך AllAttempts
-let attemptsDirty = false;
-let rebuildLock = false;
-let lastRebuildAt = null;
-
-function markDirty(reason = '') {
-  attemptsDirty = true;
-  if (reason) console.log(`🟠 attemptsDirty=true (${reason})`);
-}
 
 async function ensureNFCMapSheet() {
   const sheetMeta = await sheets.spreadsheets.get({
@@ -170,25 +200,21 @@ async function restoreAttemptsMemory() {
     console.error('❌ לא ניתן לגשת לגיליון AllAttempts. השרת יעבוד ללא שיחזור memory:', err.message);
     return;
   }
-
+  
   try {
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
-      range: 'AllAttempts!A2:F',
+      range: 'AllAttempts!A2:E',
     });
     const rows = res.data.values || [];
     const tempMemory = {};
     for (const [name, routeStr, result] of rows) {
       const route = parseInt(routeStr, 10);
-      if (!name || isNaN(route)) continue;
-
       if (!tempMemory[name]) tempMemory[name] = {};
       if (!tempMemory[name][route]) tempMemory[name][route] = [];
-
       if (result === 'RESET') tempMemory[name][route] = [];
       else if (['X', 'T'].includes(result)) tempMemory[name][route].push(result);
     }
-
     for (const name in tempMemory) {
       attemptsMemory[name] = {};
       for (const route in tempMemory[name]) {
@@ -210,170 +236,29 @@ async function logToAttemptsSheet(name, route, result) {
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'Atempts!B2:B',
     });
-    const rowIndex = (getNames.data.values || []).findIndex((row) => row[0] === name);
+    const rowIndex = getNames.data.values.findIndex((row) => row[0] === name);
     if (rowIndex === -1) return;
-
     const excelRow = rowIndex + 2;
-    const columnLetter = getExcelColumnName(parseInt(route, 10) + 2); // route 1 -> col C
+    const columnLetter = getExcelColumnName(parseInt(route, 10) + 2);
     const attemptCount = attemptsMemory[name]?.[parseInt(route, 10)]?.length || '';
-
     await sheets.spreadsheets.values.update({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: `Atempts!${columnLetter}${excelRow}`,
       valueInputOption: 'USER_ENTERED',
       resource: { values: [[attemptCount]] },
     });
-
     console.log(`✅ כתיבה ל-Atempts (${name}, מסלול ${route}, ניסיון ${attemptCount})`);
   } catch (err) {
     console.error('❌ שגיאה בעדכון גיליון Atempts:', err.message);
   }
 }
 
-/**
- * ✅ Rebuild מלא של Atempts מתוך AllAttempts (כרונולוגי)
- * - RESET מאפס ספירה
- * - סופרים X/T מאז ה-RESET האחרון
- * - אם יש T -> כותבים מספר ניסיונות עד ההצלחה
- * - אם אין T -> התא נשאר ריק
- *
- * כתיבה ב-batch לטווח C2:BA{N}
- */
-async function rebuildAtemptsFromAllAttempts() {
-  if (rebuildLock) return;
-  rebuildLock = true;
-
-  const startedAt = new Date();
-  console.log(`🔁 rebuildAtemptsFromAllAttempts התחיל... ${startedAt.toLocaleString('he-IL')}`);
-
-  try {
-    await ensureAllAttemptsSheet();
-
-    // 1) קריאת AllAttempts
-    const allRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID,
-      range: 'AllAttempts!A2:F',
-    });
-    const allRows = allRes.data.values || [];
-
-    // 2) קריאת רשימת מתחרים מתוך Atempts (שורה לפי שם)
-    const namesRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID,
-      range: 'Atempts!B2:B',
-    });
-    const names = (namesRes.data.values || []).map(r => (r[0] || '').trim());
-    const nameToRowIndex = new Map();
-    names.forEach((n, i) => {
-      if (n) nameToRowIndex.set(n, i); // i = 0-based (B2 = 0)
-    });
-
-    // 3) להבין כמה מסלולים יש לפי כותרות (C1:BA1)
-    const headerRes = await sheets.spreadsheets.values.get({
-      spreadsheetId: ACTIVE_SPREADSHEET_ID,
-      range: 'Atempts!C1:BA1',
-    });
-    const header = (headerRes.data.values?.[0] || []).map(x => (x || '').toString().trim());
-    const routeNumbers = header
-      .map(v => parseInt(v, 10))
-      .filter(v => !isNaN(v) && v > 0);
-
-    // fallback אם הכותרות לא מספריות (לא אמור לקרות אצלך)
-    const maxRoutes = routeNumbers.length > 0 ? Math.max(...routeNumbers) : header.length;
-
-    // 4) חישוב מצב סופי: name -> route -> attemptCount (או null)
-    // state: מאז ה-RESET האחרון
-    const state = {}; // state[name][route] = { count, locked }
-    const finalAttempts = {}; // finalAttempts[name][route] = number (אחרי T) או null
-
-    const getBucket = (name, route) => {
-      if (!state[name]) state[name] = {};
-      if (!state[name][route]) state[name][route] = { count: 0, locked: false };
-      return state[name][route];
-    };
-
-    for (const row of allRows) {
-      const name = (row[0] || '').toString().trim();
-      const routeNum = parseInt(row[1], 10);
-      const result = (row[2] || '').toString().trim();
-
-      if (!name || isNaN(routeNum) || routeNum <= 0) continue;
-      if (!['X', 'T', 'RESET'].includes(result)) continue;
-
-      const b = getBucket(name, routeNum);
-
-      if (result === 'RESET') {
-        b.count = 0;
-        b.locked = false;
-        if (!finalAttempts[name]) finalAttempts[name] = {};
-        finalAttempts[name][routeNum] = null;
-        continue;
-      }
-
-      if (b.locked) continue; // אחרי T מתעלמים מכל מה שבא
-
-      if (result === 'X') {
-        b.count += 1;
-        // לא כותבים ל-final עד שיש T
-      } else if (result === 'T') {
-        b.count += 1;
-        b.locked = true;
-        if (!finalAttempts[name]) finalAttempts[name] = {};
-        finalAttempts[name][routeNum] = b.count;
-      }
-    }
-
-    // 5) בניית מטריצה לעדכון: rows = מספר מתחרים, cols = מסלולים (C..BA)
-    // אצלך: route 1 -> col C = index 0
-    const colsCount = header.length; // C..BA
-    const matrix = Array.from({ length: names.length }, () => Array.from({ length: colsCount }, () => ''));
-
-    for (const [name, routeMap] of Object.entries(finalAttempts)) {
-      const rowIdx = nameToRowIndex.get(name);
-      if (rowIdx === undefined) continue;
-
-      for (const [routeStr, attemptCount] of Object.entries(routeMap)) {
-        const r = parseInt(routeStr, 10);
-        if (isNaN(r) || r <= 0) continue;
-
-        // route 1 -> column C (index 0)
-        const colIdx = r - 1;
-        if (colIdx < 0 || colIdx >= colsCount) continue;
-
-        matrix[rowIdx][colIdx] = attemptCount ? attemptCount : '';
-      }
-    }
-
-    // 6) כתיבה ב-batch
-    const lastRow = names.length + 1; // כי מתחיל ב-2, שורה 1 כותרת
-    if (names.length > 0 && colsCount > 0) {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: ACTIVE_SPREADSHEET_ID,
-        range: `Atempts!C2:${getExcelColumnName(2 + colsCount)}${lastRow}`, // 2 = B, אז 2+colsCount = B + N -> עד BA
-        valueInputOption: 'USER_ENTERED',
-        resource: { values: matrix },
-      });
-    }
-
-    // 7) (אופציונלי) לרענן את attemptsMemory מהלוג לאחר rebuild
-    for (const key in attemptsMemory) delete attemptsMemory[key];
-    await restoreAttemptsMemory();
-
-    lastRebuildAt = new Date();
-    console.log(`✅ rebuild הושלם בהצלחה (${lastRebuildAt.toLocaleString('he-IL')})`);
-  } catch (err) {
-    console.error('❌ rebuildAtemptsFromAllAttempts נכשל:', err.message);
-    throw err;
-  } finally {
-    rebuildLock = false;
-  }
-}
-
 app.post('/sync-offline', async (req, res) => {
-  const { attempts, stationId: stationIdFromBody } = req.body;
+  const { attempts } = req.body;
   if (!Array.isArray(attempts)) return res.status(400).json({ error: 'invalid format' });
 
   const results = [];
-  for (const { name, route, result, stationId } of attempts) {
+  for (const { name, route, result } of attempts) {
     const routeNum = parseInt(route, 10);
     if (!attemptsMemory[name]) attemptsMemory[name] = {};
     if (!attemptsMemory[name][routeNum]) attemptsMemory[name][routeNum] = [];
@@ -386,28 +271,17 @@ app.post('/sync-offline', async (req, res) => {
 
     history.push(result);
     const attemptNumber = history.length;
-
     try {
       await ensureAllAttemptsSheet();
       await sheets.spreadsheets.values.append({
         spreadsheetId: ACTIVE_SPREADSHEET_ID,
-        range: 'AllAttempts!A:F',
+        range: 'AllAttempts!A:E',
         valueInputOption: 'USER_ENTERED',
         resource: {
-          values: [[
-            name,
-            routeNum,
-            result,
-            result === 'T' ? attemptNumber : '',
-            new Date().toLocaleString('he-IL'),
-            stationId ?? stationIdFromBody ?? ''
-          ]],
+          values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), stationId]],
         },
       });
-
-      markDirty('sync-offline append');
       await logToAttemptsSheet(name, routeNum, result);
-
       results.push({ name, route, result, saved: true });
     } catch (err) {
       console.error('❌ שגיאה בסנכרון אופליין:', err.message);
@@ -444,7 +318,7 @@ app.get('/history', async (req, res) => {
 });
 
 app.post('/correct', async (req, res) => {
-  const { name, route, judgePassword, stationId } = req.body;
+  const { name, route, judgePassword } = req.body;
 
   // 🔐 בדיקת קוד שופט (לא אדמין)
   if (judgePassword !== process.env.JUDGE_PASSWORD) {
@@ -460,10 +334,9 @@ app.post('/correct', async (req, res) => {
 
   // רישום RESET ל-AllAttempts
   try {
-    await ensureAllAttemptsSheet();
     await sheets.spreadsheets.values.append({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
-      range: 'AllAttempts!A:F',
+      range: 'AllAttempts!A:E',
       valueInputOption: 'USER_ENTERED',
       resource: {
         values: [[
@@ -471,27 +344,25 @@ app.post('/correct', async (req, res) => {
           routeNum,
           'RESET',
           '',
-          new Date().toLocaleString('he-IL'),
-          stationId ?? ''
+          new Date().toLocaleString('he-IL')
         ]],
       },
     });
 
-    markDirty('correct RESET append');
     console.log(`📝 RESET נרשם ל-AllAttempts עבור ${name}, מסלול ${routeNum}`);
   } catch (err) {
     console.error('❌ שגיאה ברישום RESET:', err.message);
     return res.status(500).json({ error: 'שגיאה ברישום RESET' });
   }
 
-  // ניקוי התא בגיליון Atempts (מיידי) – יישור קו מלא יקרה ברוטינה
+  // ניקוי התא בגיליון Atempts
   try {
     const getNames = await sheets.spreadsheets.values.get({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'Atempts!B2:B',
     });
 
-    const rowIndex = (getNames.data.values || []).findIndex(row => row[0] === name);
+    const rowIndex = getNames.data.values.findIndex(row => row[0] === name);
     if (rowIndex !== -1) {
       const excelRow = rowIndex + 2;
       const columnLetter = getExcelColumnName(routeNum + 2);
@@ -520,7 +391,6 @@ app.get('/refresh', async (req, res) => {
 app.post('/mark', async (req, res) => {
   const { name, route, result, stationId } = req.body;
   const routeNum = parseInt(route, 10);
-
   if (!attemptsMemory[name]) attemptsMemory[name] = {};
   if (!attemptsMemory[name][routeNum]) attemptsMemory[name][routeNum] = [];
 
@@ -530,26 +400,16 @@ app.post('/mark', async (req, res) => {
 
   historyArr.push(result);
   const attemptNumber = historyArr.length;
-
   try {
     await ensureAllAttemptsSheet();
     await sheets.spreadsheets.values.append({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
-      range: 'AllAttempts!A:F',
+      range: 'AllAttempts!A:E',
       valueInputOption: 'USER_ENTERED',
       resource: {
-        values: [[
-          name,
-          routeNum,
-          result,
-          result === 'T' ? attemptNumber : '',
-          new Date().toLocaleString('he-IL'),
-          stationId ?? ''
-        ]],
+        values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), stationId]],
       },
     });
-
-    markDirty('mark append');
 
     // הסרה מהתור אחרי סימון ניסיון
     if (queues) {
@@ -715,6 +575,12 @@ app.get('/personal/:name', async (req, res) => {
   }
 });
 
+const buildPath = path.join(__dirname, 'build');
+app.use(express.static(buildPath));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
+});
+
 app.get('/get-latest-uid', (req, res) => {
   try {
     const uid = fs.readFileSync('latest_uid.txt', 'utf-8').trim();
@@ -728,7 +594,7 @@ app.get('/get-latest-uid', (req, res) => {
 app.get('/nfc-name/:uid', async (req, res) => {
   const uid = req.params.uid.trim();
   console.log(`🔍 מחפש UID: "${uid}"`);
-
+  
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
@@ -737,26 +603,26 @@ app.get('/nfc-name/:uid', async (req, res) => {
 
     const rows = response.data.values || [];
     console.log(`📋 נמצאו ${rows.length} שורות ב-NFCMap`);
-
+    
     const normalizeUid = (str) => (str || '').replace(/[:\s-]/g, '').toLowerCase();
     const uidNormalized = normalizeUid(uid);
-
+    
     const match = rows.find(row => {
       const rowUid = row[0] || '';
       const rowUidNormalized = normalizeUid(rowUid);
-
+      
       if (rowUidNormalized === uidNormalized) {
         console.log(`✅ נמצא התאמה: "${rowUid}" -> "${row[1]}"`);
         return true;
       }
-
+      
       const rowUidNoColon = rowUidNormalized.replace(/:/g, '');
       const uidNoColon = uidNormalized.replace(/:/g, '');
       if (rowUidNoColon === uidNoColon && rowUidNoColon.length > 0) {
         console.log(`✅ נמצא התאמה (ללא נקודתיים): "${rowUid}" -> "${row[1]}"`);
         return true;
       }
-
+      
       return false;
     });
 
@@ -820,7 +686,10 @@ app.post('/update-sheet-id', (req, res) => {
   ACTIVE_SPREADSHEET_ID = newSheetId;
   process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
 
+  saveActiveSheetIdToDisk(ACTIVE_SPREADSHEET_ID);
+
   console.log(`✅ ACTIVE_SPREADSHEET_ID עודכן ל: ${newSheetId}`);
+  console.log('💾 נשמר לדיסק:', ACTIVE_SHEET_FILE);
   res.json({ message: 'מזהה הגיליון עודכן בהצלחה' });
 });
 
@@ -852,11 +721,21 @@ app.post('/set-active-sheet', async (req, res) => {
 
   ACTIVE_SPREADSHEET_ID = newSheetId;
   process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
+  saveActiveSheetIdToDisk(ACTIVE_SPREADSHEET_ID);
   console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
+  console.log('💾 נשמר לדיסק:', ACTIVE_SHEET_FILE);
 
-  // שינוי גיליון -> עדיף rebuild מלא ברקע
-  markDirty('set-active-sheet');
   return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
+});
+
+app.listen(PORT, async () => {
+  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
+  try {
+    await restoreAttemptsMemory();
+    console.log('✅ שיחזור memory הושלם בהצלחה');
+  } catch (err) {
+    console.error('⚠️ שגיאה בשיחזור memory, השרת ממשיך לעבוד:', err.message);
+  }
 });
 
 // ✅ שיוך UID לשם מתחרה – כולל מניעת שיוך כפול
@@ -904,37 +783,4 @@ app.post('/assign-nfc', async (req, res) => {
     console.error('❌ שגיאה בשיוך UID:', err.message);
     res.status(500).json({ error: 'שגיאה בשיוך UID' });
   }
-});
-
-// ✅ Static צריך להיות אחרי כל ה-API, אחרת הוא "תופס" הכל
-const buildPath = path.join(__dirname, 'build');
-app.use(express.static(buildPath));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
-});
-
-app.listen(PORT, async () => {
-  console.log(`✅ השרת רץ על http://localhost:${PORT}`);
-  try {
-    await restoreAttemptsMemory();
-    console.log('✅ שיחזור memory הושלם בהצלחה');
-  } catch (err) {
-    console.error('⚠️ שגיאה בשיחזור memory, השרת ממשיך לעבוד:', err.message);
-  }
-
-  // ✅ רוטינה כל 2 דקות: rebuild רק אם dirty
-  setInterval(async () => {
-    if (!attemptsDirty) return;
-    if (rebuildLock) return;
-
-    try {
-      console.log('⏱️ רוטינה: זוהה dirty -> מתחיל rebuild...');
-      await rebuildAtemptsFromAllAttempts();
-      attemptsDirty = false;
-      console.log('✅ רוטינה: rebuild הסתיים, dirty=false');
-    } catch (e) {
-      console.error('❌ רוטינה: rebuild נכשל:', e.message);
-      // נשאר dirty=true כדי לנסות שוב בריצה הבאה
-    }
-  }, 2 * 60 * 1000);
 });
