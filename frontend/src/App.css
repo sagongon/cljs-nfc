@@ -1,4 +1,3 @@
-
 /* ✅ App.css - עיצוב כהה מותאם אישית */
 .App {
   text-align: center;
@@ -182,11 +181,19 @@ p {
 }
 
 .route-btn.selected {
-  background: #2563eb;               /* רקע בולט */
-  color: #ffffff;                    /* טקסט לבן */
+  background: #2563eb;
+  color: #ffffff;
   border: 2px solid #1d4ed8;
   box-shadow: 0 4px 10px rgba(37, 99, 235, 0.45);
   transform: scale(1.06);
+}
+
+/* ✅ FIX: selected must always win hover/active/focus */
+.route-btn.selected:hover,
+.route-btn.selected:active,
+.route-btn.selected:focus {
+  background: #2563eb;
+  color: #ffffff;
 }
 
 .route-btn:disabled {
@@ -205,11 +212,17 @@ p {
 
 /* Selected route – MAIN JUDGE VIEW (stronger) */
 .route-btn--main.selected {
-  background: #1d4ed8;              /* כחול עמוק יותר */
+  background: #1d4ed8;
   color: #ffffff;
   border: 2px solid #1e40af;
   box-shadow: 0 6px 14px rgba(30, 64, 175, 0.55);
   transform: scale(1.08);
 }
 
-
+/* ✅ FIX: main selected must always win hover/active/focus */
+.route-btn--main.selected:hover,
+.route-btn--main.selected:active,
+.route-btn--main.selected:focus {
+  background: #1d4ed8;
+  color: #ffffff;
+}

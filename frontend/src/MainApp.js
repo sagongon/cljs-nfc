@@ -45,6 +45,7 @@ const MainApp = () => {
     setSelectedCategories([]);
   }, [isRegisterMode]);
 
+  // load allowed routes from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(LS_ALLOWED_ROUTES_KEY);
     if (saved) {
@@ -82,11 +83,15 @@ const MainApp = () => {
     }
   };
 
+  // ✅ FIX: no in-place sort on state arrays (prevents delayed "selected" paint)
   const toggleRoute = (routeStr) => {
     setAllowedRoutes((prev) => {
-      const exists = prev.includes(routeStr);
-      const next = exists ? prev.filter((r) => r !== routeStr) : [...prev, routeStr];
-      const sorted = next.sort((a, b) => Number(a) - Number(b));
+      const next = prev.includes(routeStr)
+        ? prev.filter((r) => r !== routeStr)
+        : [...prev, routeStr];
+
+      const sorted = [...next].sort((a, b) => Number(a) - Number(b));
+
       localStorage.setItem(LS_ALLOWED_ROUTES_KEY, JSON.stringify(sorted));
       setAllowedRoutesText(sorted.join(','));
 
@@ -107,11 +112,7 @@ const MainApp = () => {
     }
   };
 
-  const handleSelectChange = (e) => {
-    setSelectedName(e.target.value);
-    // NOTE: לא מאפסים מסלול אוטומטית כדי לא "להלחיץ" שופט
-    // אבל עדיין אי אפשר לבחור מסלול בלי שם (כפתורים disabled).
-  };
+  const handleSelectChange = (e) => setSelectedName(e.target.value);
 
   const fetchNextInQueue = async () => {
     if (!stationId) return;
@@ -308,6 +309,7 @@ const MainApp = () => {
     }
   };
 
+  // Guard: require name+route always
   const ensureNameAndRoute = () => {
     if (!selectedName) {
       setWarningMsg('יש לבחור מתחרה לפני בחירת מסלול/רישום ניסיון');
@@ -461,7 +463,6 @@ const MainApp = () => {
           onClick={() => selectRouteFromButtons(r)}
           disabled={!canChooseRoute}
           className={`route-btn route-btn--main ${routeNumber === r ? 'selected' : ''}`}
-
           type="button"
         >
           {r}
@@ -475,7 +476,7 @@ const MainApp = () => {
       <h2>🧗 מערכת שיפוט תחרות</h2>
 
       {!showCatSelector && !showRoutesSelector && (
-        <button onClick={() => setIsRegisterMode((prev) => !prev)}>
+        <button onClick={() => setIsRegisterMode((prev) => !prev)} type="button">
           {isRegisterMode ? 'עבור למצב שיפוט' : 'עבור למצב רישום'}
         </button>
       )}
