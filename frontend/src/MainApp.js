@@ -40,6 +40,11 @@ const MainApp = () => {
   const [allowedRoutesText, setAllowedRoutesText] = useState('');
   const [allowedRoutes, setAllowedRoutes] = useState([]);
 
+  // reset selected categories when toggling register/judge mode
+  useEffect(() => {
+    setSelectedCategories([]);
+  }, [isRegisterMode]);
+
   useEffect(() => {
     const saved = localStorage.getItem(LS_ALLOWED_ROUTES_KEY);
     if (saved) {
@@ -56,14 +61,12 @@ const MainApp = () => {
   }, []);
 
   const normalizeRoutes = (text) => {
-    // Accept: "1,2,3" or "1 2 3" or mixed
     const routes = text
       .split(/[,\s]+/)
       .map((r) => r.trim())
       .filter((r) => r && !isNaN(r))
-      .map((r) => String(Number(r))); // normalize "01" -> "1"
+      .map((r) => String(Number(r))); // "01" -> "1"
 
-    // Unique + sort numeric
     return Array.from(new Set(routes)).sort((a, b) => Number(a) - Number(b));
   };
 
@@ -72,7 +75,6 @@ const MainApp = () => {
     setAllowedRoutes(routes);
     localStorage.setItem(LS_ALLOWED_ROUTES_KEY, JSON.stringify(routes));
 
-    // If current selected route isn't allowed anymore - clear it
     if (routeNumber && routes.length > 0 && !routes.includes(String(routeNumber))) {
       setRouteNumber('');
       setHistory([]);
@@ -88,7 +90,6 @@ const MainApp = () => {
       localStorage.setItem(LS_ALLOWED_ROUTES_KEY, JSON.stringify(sorted));
       setAllowedRoutesText(sorted.join(','));
 
-      // If current selected route isn't allowed anymore - clear it
       if (routeNumber && !sorted.includes(String(routeNumber))) {
         setRouteNumber('');
         setHistory([]);
@@ -99,11 +100,6 @@ const MainApp = () => {
     });
   };
 
-  // reset selected categories when toggling register/judge mode
-  useEffect(() => {
-    setSelectedCategories([]);
-  }, [isRegisterMode]);
-
   const handleAddExtra = () => {
     if (newExtra && !extraCompetitors.includes(newExtra)) {
       setExtraCompetitors((prev) => [...prev, newExtra]);
@@ -111,7 +107,11 @@ const MainApp = () => {
     }
   };
 
-  const handleSelectChange = (e) => setSelectedName(e.target.value);
+  const handleSelectChange = (e) => {
+    setSelectedName(e.target.value);
+    // NOTE: לא מאפסים מסלול אוטומטית כדי לא "להלחיץ" שופט
+    // אבל עדיין אי אפשר לבחור מסלול בלי שם (כפתורים disabled).
+  };
 
   const fetchNextInQueue = async () => {
     if (!stationId) return;
@@ -155,7 +155,6 @@ const MainApp = () => {
 
     try {
       try {
-        // שליחת השם לשרת NFC
         await fetch('http://localhost:9000/current-name', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -186,11 +185,8 @@ const MainApp = () => {
             });
 
             const data = await response.json();
-            if (response.ok) {
-              setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-            } else {
-              setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-            }
+            if (response.ok) setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
+            else setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
           } catch (err) {
             console.error('שגיאה בשליחת UID:', err);
             setNfcMessage('❌ שגיאה בשליחת UID');
@@ -200,7 +196,7 @@ const MainApp = () => {
         setNfcMessage('📡 ממתין להצמדת צמיד חדש...');
         try {
           let uid = '';
-          const maxWaitTime = 10000; // 10 שניות מקסימום המתנה
+          const maxWaitTime = 10000;
           const pollInterval = 500;
           const startTime = Date.now();
 
@@ -227,11 +223,8 @@ const MainApp = () => {
           });
 
           const data = await response.json();
-          if (response.ok) {
-            setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-          } else {
-            setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-          }
+          if (response.ok) setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
+          else setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
         } catch (error) {
           console.error('שגיאת NFC:', error);
           setNfcMessage('❌ שגיאה בקריאת NFC');
@@ -315,7 +308,6 @@ const MainApp = () => {
     }
   };
 
-  // Guard: require name+route always
   const ensureNameAndRoute = () => {
     if (!selectedName) {
       setWarningMsg('יש לבחור מתחרה לפני בחירת מסלול/רישום ניסיון');
@@ -329,10 +321,8 @@ const MainApp = () => {
   };
 
   const requestMark = (res) => {
-    // Prevent marking with empty name/route
     if (!ensureNameAndRoute()) return;
 
-    // If allowed routes configured - enforce
     if (allowedRoutes.length > 0 && !allowedRoutes.includes(String(routeNumber))) {
       setWarningMsg('המסלול שנבחר לא מוגדר לשופט זה');
       return;
@@ -344,10 +334,8 @@ const MainApp = () => {
   const confirmMark = async (res) => {
     if (isSubmitting) return;
 
-    // Double guard
     if (!ensureNameAndRoute()) return;
 
-    // Enforce allowed routes
     if (allowedRoutes.length > 0 && !allowedRoutes.includes(String(routeNumber))) {
       setWarningMsg('המסלול שנבחר לא מוגדר לשופט זה');
       return;
@@ -382,7 +370,7 @@ const MainApp = () => {
         setLocked(data.locked);
       }
     } catch {
-      // intentionally empty – offline handled via localStorage
+      // offline handled via localStorage
     } finally {
       setIsSubmitting(false);
     }
@@ -458,13 +446,28 @@ const MainApp = () => {
     }
   };
 
-  // --- route buttons behavior ---
-  const canChooseRoute = Boolean(selectedName); // must choose athlete first
+  const canChooseRoute = Boolean(selectedName);
 
   const selectRouteFromButtons = (r) => {
     if (!canChooseRoute) return;
     setRouteNumber(String(r));
   };
+
+  const renderRouteButtons = () => (
+    <div className="routes-grid">
+      {allowedRoutes.map((r) => (
+        <button
+          key={r}
+          onClick={() => selectRouteFromButtons(r)}
+          disabled={!canChooseRoute}
+          className={`route-btn ${routeNumber === r ? 'selected' : ''}`}
+          type="button"
+        >
+          {r}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="App">
@@ -490,6 +493,7 @@ const MainApp = () => {
                   prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
                 )
               }
+              type="button"
             >
               {cat}
             </button>
@@ -507,27 +511,25 @@ const MainApp = () => {
           </select>
           <br />
           <br />
-          <button disabled={!selectedName} onClick={handleNfcRegistration}>
+          <button disabled={!selectedName} onClick={handleNfcRegistration} type="button">
             📳 הצמד צמיד
           </button>
           {nfcMessage && <p>{nfcMessage}</p>}
         </div>
       ) : (
         <>
-          {/* קטגוריות */}
-          <button onClick={() => setShowCatSelector((prev) => !prev)}>
+          <button onClick={() => setShowCatSelector((prev) => !prev)} type="button">
             {showCatSelector ? 'סגור קטגוריות' : 'בחר קטגוריות'}
           </button>
 
-          {/* מסלולים */}
           <button
             onClick={() => setShowRoutesSelector((prev) => !prev)}
             style={{ marginLeft: 8 }}
+            type="button"
           >
             {showRoutesSelector ? 'סגור מסלולים' : 'בחר מסלולים'}
           </button>
 
-          {/* מסך בחירת קטגוריות */}
           {showCatSelector && (
             <div className="category-selector">
               {categories.map((cat) => (
@@ -539,6 +541,7 @@ const MainApp = () => {
                       prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
                     )
                   }
+                  type="button"
                 >
                   {cat}
                 </button>
@@ -557,17 +560,16 @@ const MainApp = () => {
                       <option key={c.name} value={c.name} />
                     ))}
                 </datalist>
-                <button onClick={handleAddExtra} disabled={!newExtra}>
+                <button onClick={handleAddExtra} disabled={!newExtra} type="button">
                   הוסף
                 </button>
               </div>
-              <button onClick={() => setExtraCompetitors([])} style={{ marginTop: '8px' }}>
+              <button onClick={() => setExtraCompetitors([])} style={{ marginTop: 8 }} type="button">
                 נקה נוספים
               </button>
             </div>
           )}
 
-          {/* מסך בחירת מסלולים לשופט */}
           {showRoutesSelector && (
             <div className="category-selector">
               <h4 style={{ marginTop: 0 }}>🎯 בחירת מסלולים לשופט (מקומי)</h4>
@@ -579,25 +581,18 @@ const MainApp = () => {
                   placeholder="לדוגמה: 1,2,3,7"
                   style={{ width: '100%' }}
                 />
-                <button onClick={saveAllowedRoutes} style={{ marginTop: 6 }}>
+                <button onClick={saveAllowedRoutes} style={{ marginTop: 6 }} type="button">
                   שמור רשימה
                 </button>
               </div>
 
-              {/* תצוגת כפתורי toggle (נוח יותר מנוסחה) */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <div className="routes-grid routes-grid--small">
                 {Array.from({ length: 30 }, (_, i) => String(i + 1)).map((r) => (
                   <button
                     key={r}
                     onClick={() => toggleRoute(r)}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 10,
-                      border: '1px solid #ccc',
-                      fontWeight: 800,
-                      background: allowedRoutes.includes(r) ? '#e6f0ff' : '#fff',
-                      color: allowedRoutes.includes(r) ? '#1d4ed8' : '#111'
-                    }}
+                    className={`route-btn route-btn--small ${allowedRoutes.includes(r) ? 'selected' : ''}`}
+                    type="button"
                   >
                     {r}
                   </button>
@@ -610,7 +605,6 @@ const MainApp = () => {
             </div>
           )}
 
-          {/* מסך ראשי (שיפוט) */}
           {!showCatSelector && !showRoutesSelector && (
             <>
               <select onChange={handleSelectChange} value={selectedName}>
@@ -622,29 +616,15 @@ const MainApp = () => {
                 ))}
               </select>
 
-              {/* מסלולים: כפתורים אם הוגדרו, אחרת input רגיל */}
               {allowedRoutes.length > 0 ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                  {allowedRoutes.map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => selectRouteFromButtons(r)}
-                      disabled={!canChooseRoute}
-                      style={{
-                        padding: '10px 14px',
-                        borderRadius: 10,
-                        border: '1px solid #ccc',
-                        fontWeight: 900,
-                        background: routeNumber === r ? '#e6f0ff' : 'white',
-                        color: '#1d4ed8', // number in color
-                        opacity: canChooseRoute ? 1 : 0.45,
-                        cursor: canChooseRoute ? 'pointer' : 'not-allowed'
-                      }}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  {renderRouteButtons()}
+                  {!selectedName && (
+                    <p style={{ fontSize: 13, marginTop: 6, opacity: 0.8 }}>
+                      ℹ️ קודם בחר מתחרה, ואז תוכל לבחור מסלול.
+                    </p>
+                  )}
+                </>
               ) : (
                 <input
                   type="number"
@@ -653,26 +633,17 @@ const MainApp = () => {
                   min={1}
                   onChange={(e) => setRouteNumber(e.target.value)}
                   className="route-input"
-                  disabled={!selectedName} // prevent typing route before name too
-                  style={{
-                    opacity: selectedName ? 1 : 0.5,
-                    cursor: selectedName ? 'text' : 'not-allowed'
-                  }}
+                  disabled={!selectedName}
+                  style={{ opacity: selectedName ? 1 : 0.5, cursor: selectedName ? 'text' : 'not-allowed' }}
                 />
               )}
 
-              {!selectedName && (
-                <p style={{ fontSize: 13, marginTop: 6, opacity: 0.8 }}>
-                  ℹ️ קודם בחר מתחרה, ואז תוכל לבחור מסלול.
-                </p>
-              )}
-
               <div className="button-container">
-                <button onClick={() => requestMark('X')} disabled={locked || isSubmitting}>
+                <button onClick={() => requestMark('X')} disabled={locked || isSubmitting} type="button">
                   ❌ ניסיון
                 </button>
 
-                <button onClick={() => requestMark('T')} disabled={locked || isSubmitting}>
+                <button onClick={() => requestMark('T')} disabled={locked || isSubmitting} type="button">
                   ✅ הצלחה
                 </button>
 
@@ -682,9 +653,10 @@ const MainApp = () => {
               {warningMsg && (
                 <div className="warning-box">
                   <p>{warningMsg}</p>
-                  {/* השארתי את ה־UI שלך, אבל כרגע אנחנו לא משתמשים ב-confirm popup */}
-                  <button onClick={() => confirmMark(pendingResult)}>כן</button>
-                  <button onClick={cancelMark} style={{ marginLeft: '4px' }}>
+                  <button onClick={() => confirmMark(pendingResult)} type="button">
+                    כן
+                  </button>
+                  <button onClick={cancelMark} style={{ marginLeft: 4 }} type="button">
                     לא
                   </button>
                 </div>
@@ -699,16 +671,16 @@ const MainApp = () => {
               <hr />
               <h3>🔧 ממשק שופט ראשי</h3>
 
-              <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: 20 }}>
                 <h4>⏱ תור לפי תחנה</h4>
                 <input
                   type="number"
                   placeholder="מספר תחנה"
                   value={stationId}
                   onChange={(e) => setStationId(e.target.value)}
-                  style={{ width: '120px', marginLeft: '10px' }}
+                  style={{ width: 120, marginLeft: 10 }}
                 />
-                <button onClick={fetchNextInQueue} disabled={!stationId}>
+                <button onClick={fetchNextInQueue} disabled={!stationId} type="button">
                   הבא בתור
                 </button>
                 {nextInQueue && (
@@ -716,7 +688,7 @@ const MainApp = () => {
                     <p>
                       🔸 הבא בתור: <strong>{nextInQueue}</strong>
                     </p>
-                    <button onClick={dequeueCurrent} style={{ marginTop: '4px' }}>
+                    <button onClick={dequeueCurrent} style={{ marginTop: 4 }} type="button">
                       הסר מהתור
                     </button>
                   </div>
@@ -729,13 +701,14 @@ const MainApp = () => {
                 value={adminCode}
                 onChange={(e) => setAdminCode(e.target.value)}
               />
-              <button onClick={handleCorrection} disabled={!adminCode}>
+              <button onClick={handleCorrection} disabled={!adminCode} type="button">
                 איפוס תוצאות
               </button>
               <button
                 onClick={syncPendingAttempts}
                 disabled={!adminCode}
-                style={{ marginLeft: '5px' }}
+                style={{ marginLeft: 5 }}
+                type="button"
               >
                 סנכרון OFFLINE
               </button>
