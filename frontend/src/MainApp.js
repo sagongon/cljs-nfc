@@ -460,7 +460,8 @@ const MainApp = () => {
           key={r}
           onClick={() => selectRouteFromButtons(r)}
           disabled={!canChooseRoute}
-          className={`route-btn ${routeNumber === r ? 'selected' : ''}`}
+          className={`route-btn route-btn--main ${routeNumber === r ? 'selected' : ''}`}
+
           type="button"
         >
           {r}

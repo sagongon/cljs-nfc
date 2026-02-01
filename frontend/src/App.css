@@ -203,3 +203,13 @@ p {
   min-width: 44px;
 }
 
+/* Selected route – MAIN JUDGE VIEW (stronger) */
+.route-btn--main.selected {
+  background: #1d4ed8;              /* כחול עמוק יותר */
+  color: #ffffff;
+  border: 2px solid #1e40af;
+  box-shadow: 0 6px 14px rgba(30, 64, 175, 0.55);
+  transform: scale(1.08);
+}
+
+
