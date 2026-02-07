@@ -47,25 +47,36 @@ function saveActiveSheetIdToDisk(spreadsheetId) {
   }
 }
 
-
 dns.setDefaultResultOrder('ipv4first');
 process.env.GOOGLE_API_USE_MTLS_ENDPOINT = 'never';
 
 const app = express();
+app.use(express.json());
 
 // ✅ הגדרות CORS מלאות עם טיפול מפורש ב-OPTIONS
+// ✅ החרגה ל-/bridge/* כדי שה-Android Bridge יעבוד גם בלי Origin
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const allowedOrigins = ['https://cljs-nfc-ashy.vercel.app'];
-  
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
-  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
 
-  if (req.method === "OPTIONS") {
+  // ✅ allow bridge endpoints regardless of origin (android app / no origin)
+  if (req.url.startsWith('/bridge/')) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    return next();
+  }
+
+  const allowedOrigins = ['https://cljs-nfc-ashy.vercel.app'];
+
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
   }
 
@@ -74,16 +85,56 @@ app.use((req, res, next) => {
 
 console.log('✅ CORS מוגדר');
 
-app.use(express.json());
+app.use((req, res, next) => {
+  console.log(`📥 בקשה מ: ${req.headers.origin || '[none]'} לנתיב ${req.url}`);
+  next();
+});
+
+// ===== NFC BRIDGE SUPPORT =====
+// אופציונלי: הגדר ב-Render ENV -> NFC_BRIDGE_SECRET=someSecret
+const latestUidByStation = new Map();
+const UID_TTL_MS = 15000;
+
+app.post('/bridge/uid', (req, res) => {
+  const { stationId, uid, secret } = req.body || {};
+
+  // ✅ Optional secret gate
+  if (process.env.NFC_BRIDGE_SECRET) {
+    if (!secret || secret !== process.env.NFC_BRIDGE_SECRET) {
+      return res.status(403).json({ error: 'bad secret' });
+    }
+  }
+
+  if (!stationId || !uid) {
+    return res.status(400).json({ error: 'stationId and uid required' });
+  }
+
+  latestUidByStation.set(String(stationId), {
+    uid: String(uid).trim(),
+    ts: Date.now()
+  });
+
+  console.log('📲 BRIDGE UID:', { stationId: String(stationId), uid: String(uid).trim() });
+  res.json({ ok: true });
+});
+
+app.get('/bridge/latest', (req, res) => {
+  const stationId = String(req.query.stationId || '').trim();
+  const rec = latestUidByStation.get(stationId);
+
+  if (!stationId) return res.status(400).json({ error: 'stationId required' });
+
+  if (!rec || Date.now() - rec.ts > UID_TTL_MS) {
+    return res.json({ uid: '' });
+  }
+
+  latestUidByStation.delete(stationId);
+  res.json({ uid: rec.uid });
+});
 
 // ✅ Health check endpoint - מונע השעיה ב-Render
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-app.use((req, res, next) => {
-  console.log(`📥 בקשה מ: ${req.headers.origin} לנתיב ${req.url}`);
-  next();
 });
 
 const PORT = process.env.PORT || 4000;
@@ -93,7 +144,6 @@ let DEFAULT_SPREADSHEET_ID = process.env.DEFAULT_SPREADSHEET_ID || '';
 const PERSISTED_SHEET_ID = readActiveSheetIdFromDisk();
 let ACTIVE_SPREADSHEET_ID =
   PERSISTED_SHEET_ID || process.env.ACTIVE_SPREADSHEET_ID || DEFAULT_SPREADSHEET_ID;
-
 
 console.log("📄 DEFAULT_SPREADSHEET_ID:", DEFAULT_SPREADSHEET_ID || "[לא מוגדר]");
 console.log("📄 ACTIVE_SPREADSHEET_ID בתחילת טעינה:", ACTIVE_SPREADSHEET_ID || "[לא מוגדר]");
@@ -353,7 +403,6 @@ async function reconcileAtemptsFromAllAttempts() {
   }
 }
 
-
 app.post('/sync-offline', async (req, res) => {
   const { attempts } = req.body;
   if (!Array.isArray(attempts)) return res.status(400).json({ error: 'invalid format' });
@@ -374,19 +423,28 @@ app.post('/sync-offline', async (req, res) => {
     const attemptNumber = history.length;
     try {
       await ensureAllAttemptsSheet();
+
       await sheets.spreadsheets.values.append({
         spreadsheetId: ACTIVE_SPREADSHEET_ID,
         range: 'AllAttempts!A:F',
         valueInputOption: 'USER_ENTERED',
         resource: {
-          values: [[name, routeNum, result, result === 'T' ? attemptNumber : '', new Date().toLocaleString('he-IL'), (typeof stationId !== 'undefined' ? stationId : '')]],
+          values: [[
+            name,
+            routeNum,
+            result,
+            result === 'T' ? attemptNumber : '',
+            new Date().toLocaleString('he-IL'),
+            (typeof stationIdAttempt !== 'undefined' ? stationIdAttempt : '')
+          ]],
         },
       });
+
       await logToAttemptsSheet(name, routeNum, result);
-      results.push({ name, route, result, saved: true });
+      results.push({ name, route: routeNum, result, saved: true });
     } catch (err) {
       console.error('❌ שגיאה בסנכרון אופליין:', err.message);
-      results.push({ name, route, result, error: true });
+      results.push({ name, route: routeNum, result, error: true });
     }
   }
 
@@ -676,7 +734,6 @@ app.get('/personal/:name', async (req, res) => {
   }
 });
 
-
 app.get('/get-latest-uid', (req, res) => {
   try {
     const uid = fs.readFileSync('latest_uid.txt', 'utf-8').trim();
@@ -824,7 +881,6 @@ app.post('/set-active-sheet', async (req, res) => {
   return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
 });
 
-
 // ✅ שיוך UID לשם מתחרה – כולל מניעת שיוך כפול
 app.post('/assign-nfc', async (req, res) => {
   await ensureNFCMapSheet();
@@ -872,7 +928,6 @@ app.post('/assign-nfc', async (req, res) => {
   }
 });
 
-
 // 🧱 Serve React build (שים לב: חייב להיות אחרי כל ה-API routes)
 const buildPath = path.join(__dirname, 'build');
 app.use(express.static(buildPath));
@@ -895,4 +950,3 @@ app.listen(PORT, async () => {
     console.error('⚠️ שגיאה בשיחזור memory, השרת ממשיך לעבוד:', err.message);
   }
 });
-
