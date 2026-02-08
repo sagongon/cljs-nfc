@@ -12,7 +12,6 @@ const QueueScanner = () => {
   const [queue, setQueue] = useState([]);
   const [reader, setReader] = useState(null);
 
-  // מונע הוספה כפולה במקרה של רינדור כפול / אפקטים
   const handledBridgeUidRef = useRef(false);
 
   const fetchQueue = useCallback(async () => {
@@ -25,13 +24,11 @@ const QueueScanner = () => {
     }
   }, [stationId]);
 
-  // פונקציה מרכזית להוספה לתור (משותפת גם ל-NFC וגם ל-Bridge)
   const addUidToQueue = useCallback(
     async (uid) => {
       if (!uid) return;
 
       setMessage('📡 שולח UID לשרת...');
-
       try {
         const res = await fetch(`${SERVER_URL}/queue/add`, {
           method: 'POST',
@@ -49,6 +46,17 @@ const QueueScanner = () => {
     [stationId, fetchQueue]
   );
 
+  // ✅ Bridge hook: ה-WebView יקרא לזה ישירות בלי לעבור מסך
+  useEffect(() => {
+    window.__onBridgeUid = (uid) => {
+      addUidToQueue(uid);
+    };
+    return () => {
+      // ניקוי
+      if (window.__onBridgeUid) delete window.__onBridgeUid;
+    };
+  }, [addUidToQueue]);
+
   // טעינת תור כל 3 שניות
   useEffect(() => {
     fetchQueue();
@@ -56,7 +64,7 @@ const QueueScanner = () => {
     return () => clearInterval(interval);
   }, [fetchQueue]);
 
-  // ✅ תמיכה ב-NFCBridge: אם הגיע uid ב-query string, נכניס לתור וננקה URL
+  // תמיכה גם ב-?uid=... (fallback אם הדף נטען מחדש)
   useEffect(() => {
     const uidFromBridge = sp.get('uid');
     if (!uidFromBridge) return;
@@ -67,11 +75,7 @@ const QueueScanner = () => {
 
     (async () => {
       await addUidToQueue(uidFromBridge);
-
-      // ניקוי uid מהכתובת כדי שלא יתווסף שוב ברענון
       navigate(`/queue-scanner/${stationId}`, { replace: true });
-
-      // מאפשר שוב הוספה בעתיד אם יגיע uid חדש (אחרי ניקוי)
       setTimeout(() => {
         handledBridgeUidRef.current = false;
       }, 500);
@@ -80,7 +84,8 @@ const QueueScanner = () => {
 
   const startScan = useCallback(async () => {
     if (!('NDEFReader' in window)) {
-      setMessage('המכשיר לא תומך ב־NFC');
+      // בסמסונג זה בסדר — ה-Bridge יזרים UID
+      setMessage('⏳ ממתין לצמיד...');
       return;
     }
 
@@ -96,14 +101,12 @@ const QueueScanner = () => {
       };
     } catch (err) {
       console.error('שגיאה בהפעלת הסריקה:', err);
-      setMessage('❌ שגיאה בקריאת NFC');
+      setMessage('⏳ ממתין לצמיד...');
     }
   }, [addUidToQueue]);
 
   useEffect(() => {
-    if (!reader) {
-      startScan();
-    }
+    if (!reader) startScan();
   }, [reader, startScan]);
 
   return (
