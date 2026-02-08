@@ -98,7 +98,10 @@ const UID_TTL_MS = 15000;
 app.post('/bridge/uid', (req, res) => {
   const { stationId, uid, secret } = req.body || {};
 
-  // ✅ Optional secret gate
+  console.log('🚨 /bridge/uid CALLED');
+  console.log('BODY:', req.body);
+  console.log('HEADERS ORIGIN:', req.headers.origin);
+
   if (process.env.NFC_BRIDGE_SECRET) {
     if (!secret || secret !== process.env.NFC_BRIDGE_SECRET) {
       return res.status(403).json({ error: 'bad secret' });
@@ -114,16 +117,16 @@ app.post('/bridge/uid', (req, res) => {
     ts: Date.now()
   });
 
-  console.log('📲 BRIDGE UID:', { stationId: String(stationId), uid: String(uid).trim() });
-  res.json({ ok: true });
+  return res.json({ ok: true });
 });
 
 app.get('/bridge/latest', (req, res) => {
   const stationId = String(req.query.stationId || '').trim();
+  if (!stationId) {
+    return res.status(400).json({ error: 'stationId required' });
+  }
+
   const rec = latestUidByStation.get(stationId);
-
-  if (!stationId) return res.status(400).json({ error: 'stationId required' });
-
   if (!rec || Date.now() - rec.ts > UID_TTL_MS) {
     return res.json({ uid: '' });
   }
