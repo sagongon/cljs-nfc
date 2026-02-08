@@ -150,6 +150,8 @@ const MainApp = () => {
 
   
   // ✅ NFC registration – WebNFC first, Samsung EMPTY TAG → Bridge fallback
+  
+  // ✅ NFC registration – WebNFC first, Samsung EMPTY TAG → Bridge fallback
   const handleNfcRegistration = async () => {
     if (!selectedName) {
       setNfcMessage('יש לבחור מתחרה לפני סריקת צמיד');
@@ -200,7 +202,6 @@ const MainApp = () => {
     try {
       setNfcMessage('⏳ ממתין להצמדת צמיד...');
 
-      // 1) WebNFC (OnePlus)
       if ('NDEFReader' in window) {
         try {
           const reader = new window.NDEFReader();
@@ -213,7 +214,6 @@ const MainApp = () => {
 
             let uid = normalizeUid(event?.serialNumber || '');
 
-            // Samsung EMPTY TAG → Bridge
             if (!uid) {
               const sid = String(stationId || '').trim();
               if (!sid) {
@@ -222,6 +222,87 @@ const MainApp = () => {
               }
 
               setNfcMessage('⚠️ WebNFC החזיר EMPTY TAG — מנסה דרך Bridge...');
+              uid = await pollBridgeUid(sid);
+
+              if (!uid) {
+                setNfcMessage('❌ לא נקלט UID מה-Bridge');
+                return;
+              }
+            }
+
+            handled = true;
+            setNfcMessage('📡 שולח UID לשרת...');
+            await sendAssign(uid);
+          };
+
+          reader.onerror = async () => {
+            if (handled) return;
+            const sid = String(stationId || '').trim();
+            if (!sid) {
+              setNfcMessage('❌ חסר מספר תחנה (Station ID)');
+              return;
+            }
+
+            setNfcMessage('⚠️ WebNFC נכשל — מנסה דרך Bridge...');
+            const uid = await pollBridgeUid(sid);
+            if (!uid) {
+              setNfcMessage('❌ לא נקלט UID מה-Bridge');
+              return;
+            }
+
+            handled = true;
+            setNfcMessage('📡 שולח UID לשרת...');
+            await sendAssign(uid);
+          };
+
+          return;
+        } catch {}
+      }
+
+      const sid = String(stationId || '').trim();
+      if (!sid) {
+        setNfcMessage('❌ חסר מספר תחנה (Station ID)');
+        return;
+      }
+
+      setNfcMessage('📶 מכשיר בלי WebNFC — ממתין ל-Bridge...');
+      const uid = await pollBridgeUid(sid);
+      if (!uid) {
+        setNfcMessage('❌ לא נקלט UID מה-Bridge');
+        return;
+      }
+
+      setNfcMessage('📡 שולח UID לשרת...');
+      await sendAssign(uid);
+    } catch (err) {
+      console.error('שגיאת NFC:', err);
+      setNfcMessage('❌ שגיאה בקריאת NFC');
+    }
+  };
+
+
+    const sendAssign = async (uid) => {
+      const response = await fetch(`${SERVER_URL}/assign-nfc`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: selectedName, uid })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
+        return true;
+      } else {
+        setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
+        return false;
+      }
+    };
+
+    try {
+      setNfcMessage('⏳ ממתין להצמדת צמיד...');
+
+      // 1) WebNFC (OnePlus)
+setNfcMessage('⚠️ WebNFC החזיר EMPTY TAG — מנסה דרך Bridge...');
               uid = await pollBridgeUid(sid);
 
               if (!uid) {
@@ -280,36 +361,7 @@ const MainApp = () => {
       setNfcMessage('❌ שגיאה בקריאת NFC');
     }
   };
-
-
-if ('NDEFReader' in window) {
-  try {
-    const reader = new window.NDEFReader();
-    await reader.scan();
-    setNfcMessage('⏳ ממתין להצמדת צמיד...');
-
-    let alreadyProcessed = false;
-
-    reader.onreading = async (event) => {
-      if (alreadyProcessed) return;
-
-      // 1) try WebNFC UID (OnePlus path)
-      const webUidRaw = (event && event.serialNumber) ? String(event.serialNumber).trim() : '';
-      const webUid = webUidRaw.replace(/[:\s-]/g, '').toUpperCase();
-
-      let uid = webUid;
-
-      // 2) fallback to Bridge if WebNFC returned empty (Samsung EMPTY TAG)
-      if (!uid) {
-        // חשוב: פה תשתמש במשתנה של מספר התחנה אצלך
-        // לדוגמה: stationId / selectedStation / stationNumber וכו'
-        const sid = String(stationId || '').trim();
-        if (!sid) {
-          setNfcMessage('❌ חסר מספר תחנה (Station ID)');
-          return;
-        }
-
-        setNfcMessage('⚠️ WebNFC החזיר EMPTY TAG — מנסה דרך Bridge...');
+setNfcMessage('⚠️ WebNFC החזיר EMPTY TAG — מנסה דרך Bridge...');
         const bridgeUid = await pollBridgeUid(sid);
         uid = bridgeUid.replace(/[:\s-]/g, '').toUpperCase();
 
