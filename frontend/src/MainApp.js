@@ -148,220 +148,68 @@ const MainApp = () => {
     }
   };
 
-  
-  // ✅ NFC registration – WebNFC first, Samsung EMPTY TAG → Bridge fallback
-  
-  // ✅ NFC registration – WebNFC first, Samsung EMPTY TAG → Bridge fallback
   const handleNfcRegistration = async () => {
     if (!selectedName) {
       setNfcMessage('יש לבחור מתחרה לפני סריקת צמיד');
       return;
     }
 
-    const normalizeUid = (u) =>
-      (u || '').toString().replace(/[:\s-]/g, '').toUpperCase();
-
-    const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-
-    const pollBridgeUid = async (stationIdValue, timeoutMs = 15000) => {
-      const sid = String(stationIdValue || '').trim();
-      if (!sid) return '';
-
-      const started = Date.now();
-      while (Date.now() - started < timeoutMs) {
-        try {
-          const r = await fetch(
-            `${SERVER_URL}/bridge/latest?stationId=${encodeURIComponent(sid)}`
-          );
-          const j = await r.json();
-          const uid = normalizeUid(j.uid || '');
-          if (uid) return uid;
-        } catch {}
-        await sleep(350);
-      }
-      return '';
-    };
-
-    const sendAssign = async (uid) => {
-      const response = await fetch(`${SERVER_URL}/assign-nfc`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: selectedName, uid })
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (response.ok) {
-        setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-        return true;
-      } else {
-        setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-        return false;
-      }
-    };
-
     try {
-      setNfcMessage('⏳ ממתין להצמדת צמיד...');
-
-      if ('NDEFReader' in window) {
-        try {
-          const reader = new window.NDEFReader();
-          await reader.scan();
-
-          let handled = false;
-
-          reader.onreading = async (event) => {
-            if (handled) return;
-
-            let uid = normalizeUid(event?.serialNumber || '');
-
-            if (!uid) {
-              const sid = String(stationId || '').trim();
-              if (!sid) {
-                setNfcMessage('❌ חסר מספר תחנה (Station ID)');
-                return;
-              }
-
-              setNfcMessage('⚠️ WebNFC החזיר EMPTY TAG — מנסה דרך Bridge...');
-              uid = await pollBridgeUid(sid);
-
-              if (!uid) {
-                setNfcMessage('❌ לא נקלט UID מה-Bridge');
-                return;
-              }
-            }
-
-            handled = true;
-            setNfcMessage('📡 שולח UID לשרת...');
-            await sendAssign(uid);
-          };
-
-          reader.onerror = async () => {
-            if (handled) return;
-            const sid = String(stationId || '').trim();
-            if (!sid) {
-              setNfcMessage('❌ חסר מספר תחנה (Station ID)');
-              return;
-            }
-
-            setNfcMessage('⚠️ WebNFC נכשל — מנסה דרך Bridge...');
-            const uid = await pollBridgeUid(sid);
-            if (!uid) {
-              setNfcMessage('❌ לא נקלט UID מה-Bridge');
-              return;
-            }
-
-            handled = true;
-            setNfcMessage('📡 שולח UID לשרת...');
-            await sendAssign(uid);
-          };
-
-          return;
-        } catch {}
+      try {
+        await fetch('http://localhost:9000/current-name', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: selectedName })
+        });
+      } catch (err) {
+        console.warn('⚠️ לא הצלחנו לשמור את השם בשרת NFC:', err);
       }
 
-      const sid = String(stationId || '').trim();
-      if (!sid) {
-        setNfcMessage('❌ חסר מספר תחנה (Station ID)');
-        return;
-      }
-
-      setNfcMessage('📶 מכשיר בלי WebNFC — ממתין ל-Bridge...');
-      const uid = await pollBridgeUid(sid);
-      if (!uid) {
-        setNfcMessage('❌ לא נקלט UID מה-Bridge');
-        return;
-      }
-
-      setNfcMessage('📡 שולח UID לשרת...');
-      await sendAssign(uid);
-    } catch (err) {
-      console.error('שגיאת NFC:', err);
-      setNfcMessage('❌ שגיאה בקריאת NFC');
-    }
-  };
-
-
-    const sendAssign = async (uid) => {
-      const response = await fetch(`${SERVER_URL}/assign-nfc`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: selectedName, uid })
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (response.ok) {
-        setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-        return true;
-      } else {
-        setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-        return false;
-      }
-    };
-
+      // --- helper: Bridge polling (Samsung fallback) ---
+const pollBridgeUid = async (stationId, timeoutMs = 15000) => {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
     try {
-      setNfcMessage('⏳ ממתין להצמדת צמיד...');
-
-      // 1) WebNFC (OnePlus)
-setNfcMessage('⚠️ WebNFC החזיר EMPTY TAG — מנסה דרך Bridge...');
-              uid = await pollBridgeUid(sid);
-
-              if (!uid) {
-                setNfcMessage('❌ לא נקלט UID מה-Bridge');
-                return;
-              }
-            }
-
-            handled = true;
-            setNfcMessage('📡 שולח UID לשרת...');
-            await sendAssign(uid);
-          };
-
-          reader.onerror = async () => {
-            if (handled) return;
-            const sid = String(stationId || '').trim();
-            if (!sid) {
-              setNfcMessage('❌ חסר מספר תחנה (Station ID)');
-              return;
-            }
-
-            setNfcMessage('⚠️ WebNFC נכשל — מנסה דרך Bridge...');
-            const uid = await pollBridgeUid(sid);
-            if (!uid) {
-              setNfcMessage('❌ לא נקלט UID מה-Bridge');
-              return;
-            }
-
-            handled = true;
-            setNfcMessage('📡 שולח UID לשרת...');
-            await sendAssign(uid);
-          };
-
-          return;
-        } catch {}
-      }
-
-      // 2) No WebNFC → Bridge only
-      const sid = String(stationId || '').trim();
-      if (!sid) {
-        setNfcMessage('❌ חסר מספר תחנה (Station ID)');
-        return;
-      }
-
-      setNfcMessage('📶 מכשיר בלי WebNFC — ממתין ל-Bridge...');
-      const uid = await pollBridgeUid(sid);
-      if (!uid) {
-        setNfcMessage('❌ לא נקלט UID מה-Bridge');
-        return;
-      }
-
-      setNfcMessage('📡 שולח UID לשרת...');
-      await sendAssign(uid);
-    } catch (err) {
-      console.error('שגיאת NFC:', err);
-      setNfcMessage('❌ שגיאה בקריאת NFC');
+      const r = await fetch(`${SERVER_URL}/bridge/latest?stationId=${encodeURIComponent(stationId)}`);
+      const j = await r.json();
+      const uid = (j.uid || '').trim();
+      if (uid) return uid;
+    } catch (e) {
+      // ignore and retry
     }
-  };
-setNfcMessage('⚠️ WebNFC החזיר EMPTY TAG — מנסה דרך Bridge...');
+    await new Promise(res => setTimeout(res, 350));
+  }
+  return '';
+};
+
+if ('NDEFReader' in window) {
+  try {
+    const reader = new window.NDEFReader();
+    await reader.scan();
+    setNfcMessage('⏳ ממתין להצמדת צמיד...');
+
+    let alreadyProcessed = false;
+
+    reader.onreading = async (event) => {
+      if (alreadyProcessed) return;
+
+      // 1) try WebNFC UID (OnePlus path)
+      const webUidRaw = (event && event.serialNumber) ? String(event.serialNumber).trim() : '';
+      const webUid = webUidRaw.replace(/[:\s-]/g, '').toUpperCase();
+
+      let uid = webUid;
+
+      // 2) fallback to Bridge if WebNFC returned empty (Samsung EMPTY TAG)
+      if (!uid) {
+        // חשוב: פה תשתמש במשתנה של מספר התחנה אצלך
+        // לדוגמה: stationId / selectedStation / stationNumber וכו'
+        const sid = String(stationId || '').trim();
+        if (!sid) {
+          setNfcMessage('❌ חסר מספר תחנה (Station ID)');
+          return;
+        }
+
+        setNfcMessage('⚠️ WebNFC החזיר EMPTY TAG — מנסה דרך Bridge...');
         const bridgeUid = await pollBridgeUid(sid);
         uid = bridgeUid.replace(/[:\s-]/g, '').toUpperCase();
 
@@ -417,179 +265,9 @@ setNfcMessage('⚠️ WebNFC החזיר EMPTY TAG — מנסה דרך Bridge...'
       setNfcMessage('❌ חסר מספר תחנה (Station ID)');
     } else {
       setNfcMessage('⚠️ WebNFC לא זמין/נכשל — מנסה דרך Bridge...');
-      const uid = await pollBridgeUid(sid);
-      if (!uid) {
-        setNfcMessage('❌ לא נקלט UID מה-Bridge');
-      } else {
-        setNfcMessage('📡 שולח UID לשרת...');
-        await fetch(`${SERVER_URL}/assign-nfc`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: selectedName, uid })
-        });
-      }
-    }
-  }
-} else {
-  // no WebNFC -> Bridge only
-  const sid = String(stationId || '').trim();
-  if (!sid) {
-    setNfcMessage('❌ חסר מספר תחנה (Station ID)');
-  } else {
-    setNfcMessage('📶 מכשיר בלי WebNFC — ממתין ל-Bridge...');
-    const uid = await pollBridgeUid(sid);
-    if (!uid) {
-      setNfcMessage('❌ לא נקלט UID מה-Bridge');
-    } else {
-      setNfcMessage('📡 שולח UID לשרת...');
-      await fetch(`${SERVER_URL}/assign-nfc`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: selectedName, uid })
-      });
-    }
-  }
-}
+      const uid = await pollBridgeUid(sid)
 
 
-            const data = await response.json();
-            if (response.ok) setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-            else setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-          } catch (err) {
-            console.error('שגיאה בשליחת UID:', err);
-            setNfcMessage('❌ שגיאה בשליחת UID');
-          }
-        };
-      } else {
-        setNfcMessage('📡 ממתין להצמדת צמיד חדש...');
-        try {
-          let uid = '';
-          const maxWaitTime = 10000;
-          const pollInterval = 500;
-          const startTime = Date.now();
-
-          while (!uid && Date.now() - startTime < maxWaitTime) {
-            const res = await fetch('http://localhost:9000/get-latest-uid');
-            const data = await res.json();
-            if (data && data.uid) {
-              uid = data.uid;
-              break;
-            }
-            await new Promise((resolve) => setTimeout(resolve, pollInterval));
-          }
-
-          if (!uid) {
-            setNfcMessage('⚠️ לא נמשה UID – ודא שהצמיד הוצמד בזמן');
-            return;
-          }
-
-          setNfcMessage('📡 UID נמשה, שולח לשרת...');
-          const response = await fetch(`${SERVER_URL}/assign-nfc`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: selectedName, uid })
-          });
-
-          const data = await response.json();
-          if (response.ok) setNfcMessage(data.message || 'הצמיד שויך בהצלחה ✅');
-          else setNfcMessage(`❌ ${data.error || 'שגיאה בשיוך הצמיד'}`);
-        } catch (error) {
-          console.error('שגיאת NFC:', error);
-          setNfcMessage('❌ שגיאה בקריאת NFC');
-        }
-      }
-    } catch (err) {
-      console.error('שגיאת NFC:', err);
-      setNfcMessage('❌ שגיאה בקריאת NFC');
-    }
-  };
-
-  useEffect(() => {
-    fetch(`${SERVER_URL}/refresh`)
-      .then((res) => res.json())
-      .then(() => fetch(`${SERVER_URL}/live`))
-      .then((res) => res.json())
-      .then((data) => {
-        const cats = Object.keys(data);
-        setCategories(cats);
-        const full = [];
-        cats.forEach((cat) =>
-          data[cat].forEach((comp) => full.push({ name: comp.name, category: cat }))
-        );
-        setCompetitorsFull(full);
-        localStorage.setItem('cachedCompetitors', JSON.stringify(full));
-        localStorage.setItem('cachedCategories', JSON.stringify(cats));
-      })
-      .catch((err) => {
-        console.error('❌ שגיאה בשליפת מתחרים – מנסה מהזיכרון:', err);
-        const cached = localStorage.getItem('cachedCompetitors');
-        const cats = localStorage.getItem('cachedCategories');
-        if (cached && cats) {
-          setCompetitorsFull(JSON.parse(cached));
-          setCategories(JSON.parse(cats));
-        }
-      });
-  }, []);
-
-  useEffect(() => {
-    let names = competitorsFull
-      .filter((c) => selectedCategories.includes(c.category) || extraCompetitors.includes(c.name))
-      .map((c) => c.name);
-
-    if (!selectedCategories.length && !extraCompetitors.length) {
-      names = competitorsFull.map((c) => c.name);
-    }
-
-    setFilteredNames(Array.from(new Set(names)).sort());
-  }, [competitorsFull, selectedCategories, extraCompetitors]);
-
-  useEffect(() => {
-    if (selectedName && routeNumber) {
-      fetchHistory(selectedName, routeNumber);
-      setAdminCode('');
-    } else {
-      setHistory([]);
-      setLocked(false);
-      setIsLoadingHistory(false);
-    }
-  }, [selectedName, routeNumber]);
-
-  const fetchHistory = async (name, route) => {
-    setIsLoadingHistory(true);
-    try {
-      const res = await fetch(
-        `${SERVER_URL}/history?name=${encodeURIComponent(name)}&route=${route}`
-      );
-      const data = await res.json();
-      setHistory(data.history);
-      setLocked(data.locked);
-    } catch {
-      const all = JSON.parse(localStorage.getItem('offlineAttempts') || '[]');
-      const localH = [];
-      all
-        .filter((a) => a.name === name && +a.route === +route)
-        .forEach((a) => (a.result === 'RESET' ? (localH.length = 0) : localH.push(a.result)));
-      setHistory(localH);
-      setLocked(localH.includes('T') || localH.length >= 5);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
-
-  // Guard: require name+route always
-  const ensureNameAndRoute = () => {
-    if (!selectedName) {
-      setWarningMsg('יש לבחור מתחרה לפני בחירת מסלול/רישום ניסיון');
-      return false;
-    }
-    if (!routeNumber) {
-      setWarningMsg('יש לבחור מסלול לפני רישום ניסיון');
-      return false;
-    }
-    return true;
-  };
-
-  const requestMark = (res) => {
     if (!ensureNameAndRoute()) return;
 
     if (allowedRoutes.length > 0 && !allowedRoutes.includes(String(routeNumber))) {
