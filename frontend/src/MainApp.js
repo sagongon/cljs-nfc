@@ -114,25 +114,41 @@ const MainApp = () => {
 
   const handleSelectChange = (e) => setSelectedName(e.target.value);
 
-  const fetchNextInQueue = async () => {
-    if (!stationId) return;
-    try {
-      const res = await fetch(`${SERVER_URL}/queue/${stationId}/all`);
-      const data = await res.json();
-      const queueList = data.queue || [];
+  const fetchNextInQueue = async (retries = 6, delayMs = 600) => {
+  if (!stationId) return;
 
-      if (queueList.length > 0) {
-        setSelectedName(queueList[0]);
-        setNextInQueue(queueList[1] || 'אין עוד ממתינים');
-      } else {
-        setSelectedName('');
-        setNextInQueue('אין אף אחד בתור');
-      }
-    } catch (err) {
-      console.error('שגיאה בשליפת תור:', err);
-      setNextInQueue('שגיאה בשליפה');
+  try {
+    const res = await fetch(`${SERVER_URL}/queue/${stationId}/all`, {
+      cache: 'no-store',
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    const queueList = data.queue || [];
+
+    if (queueList.length > 0) {
+      // חשוב: איפוס פילטר קטגוריה כדי שהשם יופיע ב-select גם אחרי Restart
+      setSelectedCategories([]);
+
+      setSelectedName(queueList[0]);
+      setNextInQueue(queueList[1] || 'אין עוד ממתינים');
+    } else {
+      setSelectedName('');
+      setNextInQueue('אין אף אחד בתור');
     }
-  };
+  } catch (err) {
+    console.warn('שגיאה בשליפת תור (retry):', err?.message || err);
+
+    if (retries > 0) {
+      setNextInQueue('ממתין לחיבור לשרת...');
+      setTimeout(() => fetchNextInQueue(retries - 1, delayMs), delayMs);
+      return;
+    }
+
+    setNextInQueue('שגיאה בשליפה');
+  }
+};
 
   const dequeueCurrent = async () => {
     if (!stationId) return;
