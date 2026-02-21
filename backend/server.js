@@ -181,8 +181,66 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const JUDGE_PASSWORD = process.env.JUDGE_PASSWORD;
 
 const attemptsMemory = {};
-const queues = {}; // תורים לפי תחנה
+// ===============================
+// ✅ Queue persistence to disk
+// ===============================
 
+// תורים בזיכרון
+let queues = {};
+
+// איפה לשמור על הדיסק (אם יש לך mount של Render Disk, שים אותו ב-RENDER_DISK_PATH)
+const DISK_DIR = DISK_MOUNT_PATH; // אותו דיסק כמו activeSheet.json
+const QUEUES_FILE = path.join(DISK_DIR, 'queues.json');
+
+// טעינה מהדיסק (בעליית שרת)
+function loadQueuesFromDisk() {
+  try {
+    if (fs.existsSync(QUEUES_FILE)) {
+      const raw = fs.readFileSync(QUEUES_FILE, 'utf8');
+      const parsed = JSON.parse(raw || '{}');
+      if (parsed && typeof parsed === 'object') {
+        queues = parsed;
+        console.log('✅ queues נטען מהדיסק');
+      }
+    } else {
+      console.log('ℹ️ queues.json לא קיים עדיין (תקין בפעם הראשונה)');
+    }
+  } catch (err) {
+    console.error('⚠️ כשל בטעינת queues מהדיסק:', err.message);
+  }
+}
+
+// כתיבה לדיסק (debounce)
+let saveTimer = null;
+let dirtyQueues = false;
+
+function scheduleSaveQueues() {
+  dirtyQueues = true;
+  if (saveTimer) return;
+
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    if (!dirtyQueues) return;
+    dirtyQueues = false;
+
+    try {
+      fs.mkdirSync(DISK_DIR, { recursive: true });
+      fs.writeFileSync(QUEUES_FILE, JSON.stringify(queues, null, 2), 'utf8');
+    } catch (err) {
+      console.error('❌ כשל בשמירת queues לדיסק:', err.message);
+    }
+  }, 250);
+}
+
+// Snapshot קבוע
+setInterval(() => {
+  try {
+    fs.mkdirSync(DISK_DIR, { recursive: true });
+    fs.writeFileSync(QUEUES_FILE, JSON.stringify(queues, null, 2), 'utf8');
+  } catch (err) {
+    console.error('❌ snapshot queues נכשל:', err.message);
+  }
+}, 15 * 1000);
 async function ensureNFCMapSheet() {
   const sheetMeta = await sheets.spreadsheets.get({
     spreadsheetId: ACTIVE_SPREADSHEET_ID
@@ -578,6 +636,7 @@ app.post('/mark', async (req, res) => {
       for (const id in queues) {
         queues[id] = queues[id].filter(n => n !== name);
       }
+      scheduleSaveQueues();
     }
 
   } catch (err) {
@@ -633,11 +692,13 @@ if (existingStation && existingStation !== String(stationId)) {
 // 🔁 אם כבר בתור באותה תחנה — הסרה (toggle)
 if (queues[stationId].includes(name)) {
   queues[stationId] = queues[stationId].filter(n => n !== name);
-  return res.json({ message: 'הוסר מהתור', name });
+scheduleSaveQueues();
+return res.json({ message: 'הוסר מהתור', name });
 }
 
 // ✅ הוספה חדשה לתור
 queues[stationId].push(name);
+scheduleSaveQueues();
 return res.json({ message: 'התווסף לתור', name });
   } catch (err) {
     console.error('❌ שגיאה בהוספת לתור:', err.message);
@@ -667,6 +728,7 @@ app.post('/queue/dequeue', (req, res) => {
     return res.status(400).json({ error: 'אין תור להסרה' });
   }
   const removed = queues[stationId].shift();
+  scheduleSaveQueues();
   res.json({ removed });
 });
 
@@ -956,9 +1018,11 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, async () => {
   console.log(`✅ השרת רץ על http://localhost:${PORT}`);
+   loadQueuesFromDisk();
   try {
     await restoreAttemptsMemory();
     console.log('✅ שיחזור memory הושלם בהצלחה');
+   
 
     // 🔁 רענון Atempts מתוך AllAttempts (פעם ראשונה + כל 2 דקות)
     await reconcileAtemptsFromAllAttempts();
