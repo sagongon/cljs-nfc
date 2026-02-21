@@ -114,13 +114,30 @@ const MainApp = () => {
 
   const handleSelectChange = (e) => setSelectedName(e.target.value);
 
-  const fetchNextInQueue = async (retries = 6, delayMs = 600) => {
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 2500) => {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+  } finally {
+    clearTimeout(t);
+  }
+};
+
+const fetchNextInQueue = async (retries = 6, delayMs = 700) => {
   if (!stationId) return;
 
   try {
-    const res = await fetch(`${SERVER_URL}/queue/${stationId}/all`, {
-      cache: 'no-store',
-    });
+    const res = await fetchWithTimeout(
+      `${SERVER_URL}/queue/${stationId}/all`,
+      {},
+      2500
+    );
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -128,9 +145,7 @@ const MainApp = () => {
     const queueList = data.queue || [];
 
     if (queueList.length > 0) {
-      // חשוב: איפוס פילטר קטגוריה כדי שהשם יופיע ב-select גם אחרי Restart
-      setSelectedCategories([]);
-
+      setSelectedCategories([]); // איפוס פילטר קטגוריה אחרי Restart
       setSelectedName(queueList[0]);
       setNextInQueue(queueList[1] || 'אין עוד ממתינים');
     } else {
@@ -138,7 +153,7 @@ const MainApp = () => {
       setNextInQueue('אין אף אחד בתור');
     }
   } catch (err) {
-    console.warn('שגיאה בשליפת תור (retry):', err?.message || err);
+    console.warn('fetchNextInQueue failed:', err?.name, err?.message || err);
 
     if (retries > 0) {
       setNextInQueue('ממתין לחיבור לשרת...');
@@ -149,7 +164,6 @@ const MainApp = () => {
     setNextInQueue('שגיאה בשליפה');
   }
 };
-
   const dequeueCurrent = async () => {
     if (!stationId) return;
     try {
