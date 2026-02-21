@@ -614,45 +614,32 @@ app.post('/queue/add', async (req, res) => {
 
     queues[stationId] = queues[stationId] || [];
 
-    // אם כבר בתור – הסרה (כדי לאפשר ביטול תור)
-    if (queues[stationId].includes(name)) {
-      queues[stationId] = queues[stationId].filter(n => n !== name);
-      return res.json({ message: 'הוסר מהתור', name });
-    }
+// 🔒 בדיקה גלובלית — האם המתמודד כבר נמצא בתור כלשהו
+let existingStation = null;
 
-    // הוספה חדשה לתור
-    queues[stationId].push(name);
-    res.json({ message: 'התווסף לתור', name });
-  } catch (err) {
-    console.error('❌ שגיאה בהוספת לתור:', err.message);
-    res.status(500).json({ error: 'שגיאה בשרת' });
+for (const id in queues) {
+  if (queues[id].includes(name)) {
+    existingStation = id;
+    break;
   }
-});
+}
 
-// ✅ החזרת כל התור לתחנה
-app.get('/queue/:stationId/all', (req, res) => {
-  const { stationId } = req.params;
-  const queue = queues[stationId] || [];
-  res.json({ queue });
-});
+// ❌ אם רשום בתחנה אחרת — חסימה
+if (existingStation && existingStation !== String(stationId)) {
+  return res.status(409).json({
+    error: `המתמודד כבר רשום בתחנה ${existingStation}`
+  });
+}
 
-// 📤 הבא בתור בתחנה
-app.get('/queue/:stationId', (req, res) => {
-  const { stationId } = req.params;
-  const queue = queues[stationId] || [];
-  const next = queue[0] || null;
-  res.json({ next });
-});
+// 🔁 אם כבר בתור באותה תחנה — הסרה (toggle)
+if (queues[stationId].includes(name)) {
+  queues[stationId] = queues[stationId].filter(n => n !== name);
+  return res.json({ message: 'הוסר מהתור', name });
+}
 
-// 🧹 הסרת מתחרה מהתור (לאחר סיום ניסיון)
-app.post('/queue/dequeue', (req, res) => {
-  const { stationId } = req.body;
-  if (!stationId || !queues[stationId] || queues[stationId].length === 0) {
-    return res.status(400).json({ error: 'אין תור להסרה' });
-  }
-  const removed = queues[stationId].shift();
-  res.json({ removed });
-});
+// ✅ הוספה חדשה לתור
+queues[stationId].push(name);
+res.json({ message: 'התווסף לתור', name });
 
 app.get('/live', async (req, res) => {
   try {
