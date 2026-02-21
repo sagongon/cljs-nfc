@@ -614,15 +614,31 @@ app.post('/queue/add', async (req, res) => {
 
     queues[stationId] = queues[stationId] || [];
 
-    // אם כבר בתור – הסרה (כדי לאפשר ביטול תור)
-    if (queues[stationId].includes(name)) {
-      queues[stationId] = queues[stationId].filter(n => n !== name);
-      return res.json({ message: 'הוסר מהתור', name });
-    }
+    // 🔒 בדיקה גלובלית — האם המתמודד כבר נמצא בתור בתחנה כלשהי
+let existingStation = null;
+for (const id in queues) {
+  if (queues[id].includes(name)) {
+    existingStation = id;
+    break;
+  }
+}
 
-    // הוספה חדשה לתור
-    queues[stationId].push(name);
-    res.json({ message: 'התווסף לתור', name });
+// ❌ אם רשום בתחנה אחרת — חסימה
+if (existingStation && existingStation !== String(stationId)) {
+  return res.status(409).json({
+    error: `המתמודד כבר רשום בתחנה ${existingStation}`
+  });
+}
+
+// 🔁 אם כבר בתור באותה תחנה — הסרה (toggle)
+if (queues[stationId].includes(name)) {
+  queues[stationId] = queues[stationId].filter(n => n !== name);
+  return res.json({ message: 'הוסר מהתור', name });
+}
+
+// ✅ הוספה חדשה לתור
+queues[stationId].push(name);
+return res.json({ message: 'התווסף לתור', name });
   } catch (err) {
     console.error('❌ שגיאה בהוספת לתור:', err.message);
     res.status(500).json({ error: 'שגיאה בשרת' });
