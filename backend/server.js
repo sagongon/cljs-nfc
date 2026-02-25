@@ -954,12 +954,18 @@ app.post('/set-active-sheet', async (req, res) => {
   }
 
   ACTIVE_SPREADSHEET_ID = newSheetId;
-  process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
-  saveActiveSheetIdToDisk(ACTIVE_SPREADSHEET_ID);
-  console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
-  console.log('💾 נשמר לדיסק:', ACTIVE_SHEET_FILE);
+process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
+saveActiveSheetIdToDisk(ACTIVE_SPREADSHEET_ID);
+console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
+console.log('💾 נשמר לדיסק:', ACTIVE_SHEET_FILE);
 
-  return res.json({ message: `הגיליון עודכן בהצלחה ל־${newSheetId}` });
+// 🧹 תחרות חדשה => איפוס תורים (גם בזיכרון וגם בדיסק)
+queues = {};
+scheduleSaveQueues();
+console.log('🧹 queues אופס בעקבות החלפת גיליון (תחרות חדשה)');
+
+return res.json({
+  message: `הגיליון עודכן בהצלחה ל־${newSheetId} (התורים אופסו)`,
 });
 
 // ✅ שיוך UID לשם מתחרה – כולל מניעת שיוך כפול
