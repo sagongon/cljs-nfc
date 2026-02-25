@@ -187,6 +187,7 @@ const attemptsMemory = {};
 
 // תורים בזיכרון
 let queues = {};
+let queuesPersistenceEnabled = true;
 
 // איפה לשמור על הדיסק (אם יש לך mount של Render Disk, שים אותו ב-RENDER_DISK_PATH)
 const DISK_DIR = DISK_MOUNT_PATH; // אותו דיסק כמו activeSheet.json
@@ -195,19 +196,69 @@ const QUEUES_FILE = path.join(DISK_DIR, 'queues.json');
 // טעינה מהדיסק (בעליית שרת)
 function loadQueuesFromDisk() {
   try {
-    if (fs.existsSync(QUEUES_FILE)) {
-      const raw = fs.readFileSync(QUEUES_FILE, 'utf8');
-      const parsed = JSON.parse(raw || '{}');
-      if (parsed && typeof parsed === 'object') {
-        queues = parsed;
-        console.log('✅ queues נטען מהדיסק');
-      }
-    } else {
+    if (!fs.existsSync(QUEUES_FILE)) {
       console.log('ℹ️ queues.json לא קיים עדיין (תקין בפעם הראשונה)');
+      queues = {};
+      return;
     }
+
+    const raw = fs.readFileSync(QUEUES_FILE, 'utf8');
+    const parsed = JSON.parse(raw || '{}');
+
+    // ✅ תאימות לאחור: אם פעם שמרת רק queues (בלי sheetId)
+    if (parsed && typeof parsed === 'object' && !('sheetId' in parsed) && !('queues' in parsed)) {
+      queues = parsed;
+      console.log('✅ queues נטען מהדיסק (פורמט ישן)');
+
+      // משדרג מייד לפורמט החדש על אותו sheet
+      fs.writeFileSync(
+        QUEUES_FILE,
+        JSON.stringify({ sheetId: ACTIVE_SPREADSHEET_ID, queues }, null, 2),
+        'utf8'
+      );
+      return;
+    }
+
+    const fileSheetId = (parsed?.sheetId || '').toString().trim();
+    const fileQueues = parsed?.queues;
+
+    // אם הקובץ שייך לתחרות אחרת -> מתחילים תור חדש
+    if (fileSheetId && fileSheetId !== ACTIVE_SPREADSHEET_ID) {
+  console.log(
+    `⚠️ queues.json שייך לגיליון אחר (${fileSheetId}) אבל ACTIVE הוא ${ACTIVE_SPREADSHEET_ID}. ` +
+    `לא טוען תור ולא כותב לדיסק. איפוס יקרה רק אחרי set-active-sheet ביוזמה.`
+  );
+  queues = {};
+  queuesPersistenceEnabled = false; // 🔒 חוסם שמירה אוטומטית כדי לא לדרוס queues.json
+  return;
+}
+
+    queues = (fileQueues && typeof fileQueues === 'object') ? fileQueues : {};
+    console.log('✅ queues נטען מהדיסק');
+
   } catch (err) {
     console.error('⚠️ כשל בטעינת queues מהדיסק:', err.message);
+    queues = {};
   }
+}
+
+
+// איפוס תור כאשר עוברים לגיליון/תחרות חדשה
+function resetQueuesForNewSheet() {
+  queues = {};
+  queuesPersistenceEnabled = true; // ✅ אחרי set-active-sheet חוזרים לשמור תורים
+
+  try {
+    fs.mkdirSync(DISK_DIR, { recursive: true });
+    fs.writeFileSync(
+      QUEUES_FILE,
+      JSON.stringify({ sheetId: ACTIVE_SPREADSHEET_ID, queues }, null, 2),
+      'utf8'
+    );
+  } catch (err) {
+    console.error('❌ כשל באיפוס queues לדיסק:', err.message);
+  }
+  console.log('🧹 תורים אופסו עבור גיליון חדש:', ACTIVE_SPREADSHEET_ID);
 }
 
 // כתיבה לדיסק (debounce)
@@ -215,6 +266,7 @@ let saveTimer = null;
 let dirtyQueues = false;
 
 function scheduleSaveQueues() {
+  if (!queuesPersistenceEnabled) return; // 🔒 לא כותבים לדיסק אם sheet לא תואם
   dirtyQueues = true;
   if (saveTimer) return;
 
@@ -225,7 +277,12 @@ function scheduleSaveQueues() {
 
     try {
       fs.mkdirSync(DISK_DIR, { recursive: true });
-      fs.writeFileSync(QUEUES_FILE, JSON.stringify(queues, null, 2), 'utf8');
+      fs.writeFileSync(
+  QUEUES_FILE,
+  JSON.stringify({ sheetId: ACTIVE_SPREADSHEET_ID, queues }, null, 2),
+  'utf8'
+);
+
     } catch (err) {
       console.error('❌ כשל בשמירת queues לדיסק:', err.message);
     }
@@ -234,13 +291,19 @@ function scheduleSaveQueues() {
 
 // Snapshot קבוע
 setInterval(() => {
+  if (!queuesPersistenceEnabled) return; // 🔒 לא כותבים לדיסק אם sheet לא תואם
   try {
     fs.mkdirSync(DISK_DIR, { recursive: true });
-    fs.writeFileSync(QUEUES_FILE, JSON.stringify(queues, null, 2), 'utf8');
+    fs.writeFileSync(
+      QUEUES_FILE,
+      JSON.stringify({ sheetId: ACTIVE_SPREADSHEET_ID, queues }, null, 2),
+      'utf8'
+    );
   } catch (err) {
     console.error('❌ snapshot queues נכשל:', err.message);
   }
 }, 15 * 1000);
+
 async function ensureNFCMapSheet() {
   const sheetMeta = await sheets.spreadsheets.get({
     spreadsheetId: ACTIVE_SPREADSHEET_ID
@@ -253,6 +316,7 @@ async function ensureNFCMapSheet() {
         requests: [{ addSheet: { properties: { title: 'NFCMap' } } }],
       },
     });
+
     await sheets.spreadsheets.values.update({
       spreadsheetId: ACTIVE_SPREADSHEET_ID,
       range: 'NFCMap!A1:B1',
@@ -919,6 +983,7 @@ app.post('/update-sheet-id', (req, res) => {
 
   ACTIVE_SPREADSHEET_ID = newSheetId;
   process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
+  resetQueuesForNewSheet();
 
   saveActiveSheetIdToDisk(ACTIVE_SPREADSHEET_ID);
 
@@ -955,6 +1020,9 @@ app.post('/set-active-sheet', async (req, res) => {
 
   ACTIVE_SPREADSHEET_ID = newSheetId;
   process.env.ACTIVE_SPREADSHEET_ID = newSheetId;
+
+  resetQueuesForNewSheet(); // ✅ חובה כדי לאפס תורים בתחרות חדשה
+
   saveActiveSheetIdToDisk(ACTIVE_SPREADSHEET_ID);
   console.log('📄 ACTIVE_SPREADSHEET_ID עודכן ל:', ACTIVE_SPREADSHEET_ID);
   console.log('💾 נשמר לדיסק:', ACTIVE_SHEET_FILE);
