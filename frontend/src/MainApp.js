@@ -479,18 +479,36 @@ const fetchNextInQueue = async (retries = 6, delayMs = 700) => {
   };
 
 const resetAllQueues = async () => {
-  const judgePassword = prompt('הכנס קוד שופט לאיפוס כל התורים:');
-  if (!judgePassword) return;
+  if (!adminCode?.trim()) {
+    alert('יש להזין קוד שופט');
+    return;
+  }
 
-  const ok = window.confirm('⚠️ לאפס את כל התורים בכל התחנות? פעולה זו מיועדת לסוף מקצה.');
+  const ok = window.confirm(
+    '⚠️ לאפס את כל התורים בכל התחנות?\nפעולה זו מיועדת לסוף מקצה.'
+  );
   if (!ok) return;
 
   try {
     const res = await fetch(`${SERVER_URL}/queue/reset-all`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ judgePassword })
+      body: JSON.stringify({ judgePassword: adminCode })
     });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      alert(data?.error || 'שגיאה באיפוס תורים');
+      return;
+    }
+
+    alert(data?.message || 'כל התורים אופסו בהצלחה');
+  } catch (err) {
+    console.error('reset-all failed:', err);
+    alert('❌ שגיאת תקשורת לשרת');
+  }
+};
 
     const data = await res.json().catch(() => ({}));
 
