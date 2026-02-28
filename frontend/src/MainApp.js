@@ -157,13 +157,8 @@ const fetchNextInQueue = async (retries = 6, delayMs = 700) => {
   setSelectedName(nextName);
   setNextInQueue(queueList[1] || 'אין עוד ממתינים');
 
-  // ✅ אם הבא בתור הוא "חריג" שלא בקטגוריות שנבחרו,
-  // נוסיף אותו ל-extraCompetitors כדי שלא ייעלם מהרשימה
-  setExtraCompetitors((prev) =>
-    prev.includes(nextName) ? prev : [...prev, nextName]
-  );
-} else {
-        setSelectedName('');
+  } else {
+      setSelectedName('');
       setNextInQueue('אין אף אחד בתור');
     }
   } catch (err) {
