@@ -496,21 +496,7 @@ const resetAllQueues = async () => {
       body: JSON.stringify({ judgePassword: adminCode })
     });
 
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      alert(data?.error || 'שגיאה באיפוס תורים');
-      return;
-    }
-
-    alert(data?.message || 'כל התורים אופסו בהצלחה');
-  } catch (err) {
-    console.error('reset-all failed:', err);
-    alert('❌ שגיאת תקשורת לשרת');
-  }
-};
-
-    const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       alert(data?.error || 'שגיאה באיפוס תורים');
