@@ -112,6 +112,12 @@ const MainApp = () => {
     }
   };
 
+const toggleExtraCompetitor = (name) => {
+  setExtraCompetitors((prev) =>
+    prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+  );
+};
+
   const handleSelectChange = (e) => setSelectedName(e.target.value);
 
 const fetchWithTimeout = async (url, options = {}, timeoutMs = 2500) => {
@@ -145,11 +151,19 @@ const fetchNextInQueue = async (retries = 6, delayMs = 700) => {
     const queueList = data.queue || [];
 
     if (queueList.length > 0) {
-      setSelectedCategories([]); // איפוס פילטר קטגוריה אחרי Restart
-      setSelectedName(queueList[0]);
-      setNextInQueue(queueList[1] || 'אין עוד ממתינים');
-    } else {
-      setSelectedName('');
+  const nextName = (queueList[0] || '').toString().trim();
+
+  // ✅ לא מאפסים קטגוריות!
+  setSelectedName(nextName);
+  setNextInQueue(queueList[1] || 'אין עוד ממתינים');
+
+  // ✅ אם הבא בתור הוא "חריג" שלא בקטגוריות שנבחרו,
+  // נוסיף אותו ל-extraCompetitors כדי שלא ייעלם מהרשימה
+  setExtraCompetitors((prev) =>
+    prev.includes(nextName) ? prev : [...prev, nextName]
+  );
+} else {
+        setSelectedName('');
       setNextInQueue('אין אף אחד בתור');
     }
   } catch (err) {
@@ -164,6 +178,7 @@ const fetchNextInQueue = async (retries = 6, delayMs = 700) => {
     setNextInQueue('שגיאה בשליפה');
   }
 };
+
   const dequeueCurrent = async () => {
     if (!stationId) return;
     try {
@@ -628,6 +643,27 @@ const resetAllQueues = async () => {
                   הוסף
                 </button>
               </div>
+{extraCompetitors.length > 0 && (
+  <div style={{ marginTop: 10 }}>
+    <div style={{ fontSize: 13, marginBottom: 6, opacity: 0.85 }}>
+      חריגים שנבחרו (לחיצה להסרה):
+    </div>
+
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {extraCompetitors.map((name) => (
+        <button
+          key={name}
+          type="button"
+          onClick={() => toggleExtraCompetitor(name)}
+          className="extra-btn"
+          title="לחץ להסרה"
+        >
+          {name} ✕
+        </button>
+      ))}
+    </div>
+  </div>
+)}
               <button onClick={() => setExtraCompetitors([])} style={{ marginTop: 8 }} type="button">
                 נקה נוספים
               </button>

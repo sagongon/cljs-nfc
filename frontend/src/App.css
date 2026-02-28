@@ -226,3 +226,26 @@ p {
   background: #1d4ed8;
   color: #ffffff;
 }
+
+/* ===== Extra competitors chips ===== */
+
+.extra-btn {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px dashed #f59e0b;
+  background: #fff7ed;
+  color: #7c2d12;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.extra-btn:hover {
+  background: #ffedd5;
+  border-color: #ea580c;
+  transform: translateY(-1px);
+}
+
+.extra-btn:active {
+  transform: translateY(0);
+}
