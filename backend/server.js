@@ -796,6 +796,33 @@ app.post('/queue/dequeue', (req, res) => {
   res.json({ removed });
 });
 
+// 🧹 ADMIN — איפוס כל התורים (לסיום מקצה)
+app.post('/queue/reset-all', (req, res) => {
+  const { judgePassword } = req.body || {};
+
+  if (judgePassword !== process.env.JUDGE_PASSWORD) {
+    return res.status(403).json({ error: 'קוד שופט שגוי' });
+  }
+
+  queues = {};
+  queuesPersistenceEnabled = true;
+
+  try {
+    fs.mkdirSync(DISK_DIR, { recursive: true });
+    fs.writeFileSync(
+      QUEUES_FILE,
+      JSON.stringify({ sheetId: ACTIVE_SPREADSHEET_ID, queues }, null, 2),
+      'utf8'
+    );
+  } catch (err) {
+    console.error('❌ כשל בשמירת reset-all לדיסק:', err.message);
+  }
+
+  console.log('🧹 כל התורים אופסו ידנית ע"י שופט');
+  res.json({ message: 'כל התורים אופסו בהצלחה' });
+});
+
+
 app.get('/live', async (req, res) => {
   try {
     const [competitorsRes, attemptsRes, assistRes] = await Promise.all([

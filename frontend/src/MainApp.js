@@ -478,6 +478,34 @@ const fetchNextInQueue = async (retries = 6, delayMs = 700) => {
     }
   };
 
+const resetAllQueues = async () => {
+  const judgePassword = prompt('הכנס קוד שופט לאיפוס כל התורים:');
+  if (!judgePassword) return;
+
+  const ok = window.confirm('⚠️ לאפס את כל התורים בכל התחנות? פעולה זו מיועדת לסוף מקצה.');
+  if (!ok) return;
+
+  try {
+    const res = await fetch(`${SERVER_URL}/queue/reset-all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ judgePassword })
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      alert(data?.error || 'שגיאה באיפוס תורים');
+      return;
+    }
+
+    alert(data?.message || 'כל התורים אופסו בהצלחה');
+  } catch (err) {
+    console.error('reset-all failed:', err);
+    alert('❌ שגיאת תקשורת לשרת');
+  }
+};
+
   const canChooseRoute = Boolean(selectedName);
 
   const selectRouteFromButtons = (r) => {
@@ -744,6 +772,15 @@ const fetchNextInQueue = async (retries = 6, delayMs = 700) => {
               >
                 סנכרון OFFLINE
               </button>
+
+              <button
+                onClick={resetAllQueues}
+                disabled={!adminCode}
+                style={{ marginLeft: 5, background: '#b91c1c', color: 'white' }}
+                type="button"
+             >
+               🧹 איפוס כל התורים
+             </button>
 
               {correctionMessage && <p className="message correction">{correctionMessage}</p>}
               {syncMessage && <p className="message sync">{syncMessage}</p>}
