@@ -1,17 +1,17 @@
+// QueueScanner.js
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
 const SERVER_URL = process.env.REACT_APP_API_BASE_URL || 'https://cljs.onrender.com';
 
-// תחנת בדיקת צמידים (לא תור)
-const CHECK_STATION_ID = '10';
+const TEST_STATION_ID = '10';
 
 const QueueScanner = () => {
   const { stationId } = useParams();
   const navigate = useNavigate();
   const [sp] = useSearchParams();
 
-  const isCheckStation = String(stationId) === CHECK_STATION_ID;
+  const isTestStation = String(stationId) === TEST_STATION_ID;
 
   const [message, setMessage] = useState('');
   const [queue, setQueue] = useState([]);
@@ -19,119 +19,128 @@ const QueueScanner = () => {
 
   const handledBridgeUidRef = useRef(false);
 
-  const fetchQueue = useCallback(async () => {
-    if (isCheckStation) return; // תחנת בדיקה לא מציגה תור
+  const fetchWithTimeout = useCallback(async (url, options = {}, timeoutMs = 3500) => {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
-      const res = await fetch(`${SERVER_URL}/queue/${stationId}/all`);
+      return await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+    } finally {
+      clearTimeout(t);
+    }
+  }, []);
+
+  const fetchQueue = useCallback(async () => {
+    if (!stationId) return;
+    if (isTestStation) return; // בתחנת בדיקה לא מציגים/טוענים תור
+
+    try {
+      const res = await fetch(`${SERVER_URL}/queue/${stationId}/all`, { cache: 'no-store' });
       const data = await res.json().catch(() => ({}));
       setQueue(data.queue || []);
     } catch (err) {
       console.error('שגיאה בטעינת התור:', err);
     }
-  }, [stationId, isCheckStation]);
+  }, [stationId, isTestStation]);
 
-  // ---------- מצב בדיקה ----------
   const checkUid = useCallback(
     async (uid) => {
-      const cleanUid = (uid || '').toString().trim();
-      if (!cleanUid) return;
+      if (!uid) return;
 
-      setMessage('🔎 בודק שיוך צמיד...');
+      setMessage('🔎 בודק צמיד...');
+
       try {
-        const res = await fetch(`${SERVER_URL}/nfc-name/${encodeURIComponent(cleanUid)}`, {
-          method: 'GET',
-          cache: 'no-store',
-        });
+        const res = await fetchWithTimeout(
+          `${SERVER_URL}/nfc-name/${encodeURIComponent(uid)}`,
+          {},
+          3500
+        );
 
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          setMessage(`❌ שגיאה בבדיקה (${res.status})`);
+          setMessage(`❌ צמיד לא תקין / לא משויך (${data?.error || 'שגיאה'})`);
           return;
         }
 
-        const name = (data?.name || '').toString().trim();
-
-        if (name) setMessage(`✅ צמיד תקין — משויך ל: ${name}`);
-        else setMessage('❌ צמיד לא משויך / לא תקין');
-      } catch (e) {
-        console.error('checkUid failed:', e);
+        setMessage(`✅ צמיד תקין — משויך ל: ${data?.name || 'לא ידוע'}`);
+      } catch (err) {
         setMessage('❌ שגיאת תקשורת בבדיקת צמיד');
       }
     },
-    [SERVER_URL]
+    [fetchWithTimeout]
   );
 
-  // ---------- מצב תור רגיל ----------
   const addUidToQueue = useCallback(
     async (uid) => {
-      const cleanUid = (uid || '').toString().trim();
-      if (!cleanUid) return;
+      if (!uid) return;
 
+      // ✅ תחנת בדיקה: לא מוסיפים לתור, רק בודקים
+      if (isTestStation) {
+        await checkUid(uid);
+        return;
+      }
+
+      // ✅ תחנה רגילה: התנהגות רגילה לחלוטין
       setMessage('📡 שולח UID לשרת...');
       try {
         const res = await fetch(`${SERVER_URL}/queue/add`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: cleanUid, stationId }),
+          body: JSON.stringify({ uid, stationId }),
         });
 
         const data = await res.json().catch(() => ({}));
-        setMessage(res.ok ? `✅ ${data.message || 'נוסף לתור'}` : `❌ ${data.error || 'שגיאה'}`);
+        setMessage(res.ok ? `✅ ${data?.message || 'נוסף לתור'}` : `❌ ${data?.error || 'שגיאה'}`);
         fetchQueue();
       } catch {
         setMessage('❌ שגיאה בשליחת UID');
       }
     },
-    [stationId, fetchQueue]
-  );
-
-  // נקודת כניסה אחת ל-UID (גם NFC וגם Bridge)
-  const handleUid = useCallback(
-    async (uid) => {
-      if (isCheckStation) return checkUid(uid);
-      return addUidToQueue(uid);
-    },
-    [isCheckStation, checkUid, addUidToQueue]
+    [stationId, isTestStation, checkUid, fetchQueue]
   );
 
   // ✅ Bridge hook: ה-WebView יקרא לזה ישירות
   useEffect(() => {
     window.__onBridgeUid = (uid) => {
-      handleUid(uid);
+      addUidToQueue(uid);
     };
 
     return () => {
       if (window.__onBridgeUid) delete window.__onBridgeUid;
     };
-  }, [handleUid]);
+  }, [addUidToQueue]);
 
-  // polling לתור כל 3 שניות (רק בתחנות רגילות)
+  // ✅ טעינת תור כל 3 שניות (רק בתחנות רגילות)
   useEffect(() => {
-    if (isCheckStation) return;
     fetchQueue();
+    if (isTestStation) return;
+
     const interval = setInterval(fetchQueue, 3000);
     return () => clearInterval(interval);
-  }, [fetchQueue, isCheckStation]);
+  }, [fetchQueue, isTestStation]);
 
-  // תמיכה גם ב-?uid=... (fallback אם הדף נטען מחדש)
+  // ✅ fallback ?uid=... (אם הדף נטען מחדש)
   useEffect(() => {
     const uidFromBridge = sp.get('uid');
     if (!uidFromBridge) return;
     if (handledBridgeUidRef.current) return;
 
     handledBridgeUidRef.current = true;
-
-    setMessage(isCheckStation ? '📲 התקבל UID מה-Bridge, בודק שיוך...' : '📲 התקבל UID מה-Bridge, מוסיף לתור...');
+    setMessage('📲 התקבל UID, מעבד...');
 
     (async () => {
-      await handleUid(uidFromBridge);
+      await addUidToQueue(uidFromBridge);
       navigate(`/queue-scanner/${stationId}`, { replace: true });
       setTimeout(() => {
         handledBridgeUidRef.current = false;
       }, 500);
     })();
-  }, [sp, stationId, handleUid, navigate, isCheckStation]);
+  }, [sp, stationId, addUidToQueue, navigate]);
 
   const startScan = useCallback(async () => {
     if (!('NDEFReader' in window)) {
@@ -148,13 +157,13 @@ const QueueScanner = () => {
 
       nfcReader.onreading = async (event) => {
         const uid = event.serialNumber;
-        await handleUid(uid);
+        await addUidToQueue(uid);
       };
     } catch (err) {
       console.error('שגיאה בהפעלת הסריקה:', err);
       setMessage('⏳ ממתין לצמיד...');
     }
-  }, [handleUid]);
+  }, [addUidToQueue]);
 
   useEffect(() => {
     if (!reader) startScan();
@@ -163,11 +172,12 @@ const QueueScanner = () => {
   return (
     <div className="scanner" style={{ textAlign: 'center', padding: '20px' }}>
       <h2>
-        {isCheckStation ? 'בדיקת צמידים' : 'סריקת צמיד'} – תחנה {stationId}
+        {isTestStation ? '✅ בדיקת צמידים (תחנת בדיקה)' : `סריקת צמיד – תחנה ${stationId}`}
       </h2>
+
       <p>{message}</p>
 
-      {!isCheckStation && (
+      {!isTestStation && (
         <>
           <h3>🕓 ממתינים בתור:</h3>
           {queue.length === 0 ? (
