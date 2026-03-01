@@ -19,6 +19,42 @@ const QueueScanner = () => {
 
   const handledBridgeUidRef = useRef(false);
 
+  // 🔊 simple beep (no assets needed)
+  const beep = useCallback((type = 'ok') => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const ctx = new AudioCtx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+
+      o.type = 'sine';
+      // OK = higher, ERR = lower
+      o.frequency.value = type === 'ok' ? 880 : 220;
+
+      // short + gentle
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+
+      o.connect(g);
+      g.connect(ctx.destination);
+
+      o.start();
+      o.stop(ctx.currentTime + 0.2);
+
+      // cleanup
+      o.onended = () => {
+        try {
+          ctx.close();
+        } catch {}
+      };
+    } catch {
+      // ignore sound failures
+    }
+  }, []);
+
   const fetchWithTimeout = useCallback(async (url, options = {}, timeoutMs = 3500) => {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -53,6 +89,8 @@ const QueueScanner = () => {
 
       setMessage('🔎 בודק צמיד...');
 
+      const clearAfterMs = 3500;
+
       try {
         const res = await fetchWithTimeout(
           `${SERVER_URL}/nfc-name/${encodeURIComponent(uid)}`,
@@ -64,15 +102,31 @@ const QueueScanner = () => {
 
         if (!res.ok) {
           setMessage(`❌ צמיד לא תקין / לא משויך (${data?.error || 'שגיאה'})`);
+          beep('err');
+
+          setTimeout(() => {
+            setMessage('⏳ ממתין לצמיד...');
+          }, clearAfterMs);
+
           return;
         }
 
         setMessage(`✅ צמיד תקין — משויך ל: ${data?.name || 'לא ידוע'}`);
+        beep('ok');
+
+        setTimeout(() => {
+          setMessage('⏳ ממתין לצמיד...');
+        }, clearAfterMs);
       } catch (err) {
         setMessage('❌ שגיאת תקשורת בבדיקת צמיד');
+        beep('err');
+
+        setTimeout(() => {
+          setMessage('⏳ ממתין לצמיד...');
+        }, clearAfterMs);
       }
     },
-    [fetchWithTimeout]
+    [fetchWithTimeout, beep]
   );
 
   const addUidToQueue = useCallback(
